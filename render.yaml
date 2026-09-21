@@ -1,0 +1,36 @@
+# Render deployment config for IdeaBox Arena (Month 3 Week 4)
+# -------------------------------------------------------------
+# This file sits at the repo root. Render reads it (Blueprint).
+#
+# SECRETS (set in Render Dashboard → Environment → Environment Variables,
+# or via render.yaml `env` with a sync/sync-git path). NEVER commit real keys.
+
+services:
+  - type: web
+    name: ideabox-arena
+    runtime: node
+    plan: free
+    buildCommand: echo "zero-dependency build — nothing to install"
+    startCommand: node server.js
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: INSTRUCTOR_PIN
+        value: "1234"
+      - key: LEADERBOARD_MODE
+        value: "growth"
+      # ↓↓↓ PASTE YOUR REAL KEYS HERE OR SET THEM IN THE DASHBOARD ↓↓↓
+      - key: MISTRAL_API_KEY
+        value: ""
+      - key: MISTRAL_MODEL
+        value: "ministral-8b-latest"
+      - key: NARAROUTER_API_KEY
+        value: ""
+      - key: NARAROUTER_MODEL
+        value: "nemotron-3-ultra-free"
+      - key: UNOROUTER_API_KEY
+        value: ""
+      - key: UNOROUTER_MODEL
+        value: "glm-5.3-flash:free"

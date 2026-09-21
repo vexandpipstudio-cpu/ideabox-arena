@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IdeaBox Arena — Month 3 Week 4 Practical Week</title>
+<style>
+  /* ============ TOKENS ============ */
+  :root{
+    --canvas:#0a0e18; --surface:#121927; --raised:#182238; --raised-2:#1e2a44;
+    --line:#263453; --line-soft:#1b2540;
+    --text:#edf1f9; --dim:#a3b0cc; --faint:#6b7a99;
+    --gold:#f6b93f; --gold-strong:#ffc95c; --gold-dim:#8a6a24;
+    --green:#3ddc84; --green-deep:#1d7a4c;
+    --red:#ff5c6c; --red-deep:#7a2c35;
+    --blue:#6fb1ff; --blue-deep:#2c4a77;
+    --purple:#c2a1ff; --purple-deep:#4d3a77;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+    --r-sm:10px; --r-md:14px; --r-lg:20px;
+    --shadow:0 8px 24px rgba(0,0,0,.35);
+    --sidebar-w:236px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:radial-gradient(1100px 600px at 85% -10%, rgba(38,52,84,.5) 0%, transparent 60%), var(--canvas);
+    color:var(--text); font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+    font-size:15px; line-height:1.55; min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--blue);}
+  button{font-family:inherit;cursor:pointer;}
+  input,textarea,select{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px;}
+  .ic{width:18px;height:18px;flex:0 0 auto;}
+  h2{font-size:clamp(19px,2.6vw,23px);font-weight:800;letter-spacing:.2px;margin-bottom:var(--s2);}
+  h3{font-size:15.5px;font-weight:700;margin-bottom:var(--s3);display:flex;align-items:center;gap:var(--s2);}
+  h3 .ic{color:var(--gold-strong);}
+  .muted{color:var(--dim);} .faint{color:var(--faint);font-size:13px;}
+  .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:var(--faint);}
+
+  /* ============ GATE (single unified login) ============ */
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--s5);}
+  .gatecard{width:100%;max-width:430px;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-lg);box-shadow:var(--shadow-lg,0 16px 48px rgba(0,0,0,.45));padding:var(--s6) var(--s5);position:relative;overflow:hidden;}
+  .gatecard::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:linear-gradient(90deg,var(--gold),var(--green),var(--blue),var(--purple));}
+  .gatebrand{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5);}
+  .mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),#e08b2d);color:#1c1503;box-shadow:0 4px 14px rgba(246,185,63,.35);}
+  .mark .ic{width:22px;height:22px;}
+  .gatebrand h1{font-size:20px;font-weight:800;line-height:1.2;}
+  .gatebrand p{font-size:12.5px;color:var(--dim);}
+
+  .gatefoot{margin-top:var(--s5);text-align:center;font-size:12px;color:var(--faint);line-height:1.7;}
+  .pw{font-family:Consolas,monospace;font-size:12.5px;background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:2px 8px;}
+  .startrow td{font-variant-numeric:tabular-nums;}
+
+  /* ============ SHELL ============ */
+  #app{display:none;min-height:100vh;}
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);z-index:70;
+    background:var(--surface);border-right:1px solid var(--line-soft);
+    display:flex;flex-direction:column;padding:var(--s5) var(--s3);
+  }
+  .sidenav{display:flex;flex-direction:column;gap:2px;margin-top:var(--s6);flex:1;}
+  .navitem{
+    display:flex;align-items:center;gap:var(--s3);width:100%;text-align:left;
+    background:transparent;border:none;border-radius:var(--r-sm);
+    color:var(--dim);padding:11px 14px;font-size:14px;font-weight:600;min-height:44px;
+    transition:background .12s,color .12s;position:relative;
+  }
+  .navitem:hover{background:rgba(255,255,255,.04);color:var(--text);}
+  .navitem.on{background:rgba(246,185,63,.1);color:var(--gold-strong);}
+  .navitem.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--gold);}
+  .sidenav .grp{margin-top:var(--s4);padding:0 14px;}
+  .sidefoot{border-top:1px solid var(--line-soft);padding-top:var(--s4);}
+  .userchip{display:flex;align-items:center;gap:var(--s3);padding:var(--s2) var(--s2);}
+  .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--blue-deep),var(--purple-deep));display:grid;place-items:center;font-weight:800;font-size:14px;color:var(--text);flex:0 0 36px;}
+  .userchip .nm{font-size:13.5px;font-weight:700;line-height:1.25;word-break:break-word;}
+  .userchip .rl{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:1px;}
+  .signout{display:flex;align-items:center;gap:var(--s2);width:100%;background:transparent;border:1px solid var(--line);border-radius:var(--r-sm);color:var(--dim);padding:9px 12px;font-size:13px;font-weight:600;margin-top:var(--s2);min-height:40px;}
+  .signout:hover{border-color:var(--red-deep);color:var(--red);}
+
+  .maincol{margin-left:var(--sidebar-w);display:flex;flex-direction:column;min-height:100vh;}
+  .topbar{
+    position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:var(--s4);
+    padding:var(--s3) var(--s5);background:rgba(10,14,24,.85);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .topbar h1{font-size:17px;font-weight:800;}
+  .headclock{
+    margin-left:auto;display:flex;align-items:center;gap:var(--s2);
+    background:var(--raised);border:1px solid var(--line);border-radius:999px;
+    padding:7px 15px;font-weight:800;font-variant-numeric:tabular-nums;font-size:13.5px;
+    cursor:pointer;min-height:38px;
+  }
+  .headclock .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);}
+  .headclock.running .dot{background:var(--green);animation:blink 1.6s infinite;}
+  .headclock.late .dot{background:var(--red);animation:blink .8s infinite;}
+  @keyframes blink{50%{opacity:.35;}}
+  main{max-width:1120px;width:100%;margin:0 auto;padding:var(--s5) var(--s5) calc(var(--s7) + 40px);}
+
+  .tabbar{
+    display:none;position:fixed;bottom:0;left:0;right:0;z-index:70;
+    background:rgba(18,25,39,.96);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line-soft);
+    padding:6px var(--s2) calc(6px + env(safe-area-inset-bottom));
+    justify-content:flex-start;gap:var(--s1);
+    overflow-x:auto;scrollbar-width:none;
+  }
+  .tabbar::-webkit-scrollbar{display:none;}
+  .tabbar button{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--faint);font-size:10.5px;font-weight:700;padding:6px 10px;border-radius:10px;min-width:60px;min-height:48px;flex:0 0 auto;}
+  .tabbar button.on{color:var(--gold-strong);}
+
+  @media (max-width:920px){
+    .sidebar{display:none;}
+    .maincol{margin-left:0;}
+    .tabbar{display:flex;}
+    main{padding:var(--s4) var(--s4) calc(90px + env(safe-area-inset-bottom));}
+    .topbar{padding:var(--s3) var(--s4);}
+  }
+
+  /* ============ COMPONENTS ============ */
+  .card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:var(--s5);box-shadow:var(--shadow);}
+  .card + .card{margin-top:var(--s4);}
+  .row{display:flex;gap:var(--s4);flex-wrap:wrap;}
+  .grow{flex:1 1 320px;}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.3px;border:1px solid;}
+  .pill.gold{background:rgba(246,185,63,.13);color:var(--gold-strong);border-color:var(--gold-dim);}
+  .pill.blue{background:rgba(111,177,255,.1);color:var(--blue);border-color:var(--blue-deep);}
+  .pill.green{background:rgba(61,220,132,.1);color:var(--green);border-color:var(--green-deep);}
+  .pill.red{background:rgba(255,92,108,.1);color:var(--red);border-color:var(--red-deep);}
+  .pill.purple{background:rgba(194,161,255,.1);color:var(--purple);border-color:var(--purple-deep);}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+    background:linear-gradient(180deg,var(--gold-strong),var(--gold));color:#221801;
+    border:none;border-radius:var(--r-sm);padding:12px 20px;font-weight:800;font-size:14px;
+    min-height:44px;box-shadow:0 4px 14px rgba(246,185,63,.25);transition:transform .12s,filter .12s;
+  }
+  .btn:hover{filter:brightness(1.07);} .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);box-shadow:none;}
+  .btn.ghost:hover{border-color:var(--gold);color:var(--gold-strong);filter:none;}
+  .btn.danger{background:transparent;color:var(--red);border:1px solid var(--red-deep);box-shadow:none;}
+  .btn.small{padding:8px 14px;font-size:13px;min-height:38px;}
+  .field{display:flex;flex-direction:column;gap:var(--s2);margin-bottom:var(--s4);}
+  .field label{font-size:12.5px;font-weight:700;color:var(--dim);letter-spacing:.4px;}
+  .field input,.field textarea,.field select{
+    background:var(--raised);border:1px solid var(--line);color:var(--text);
+    border-radius:var(--r-sm);padding:12px 14px;font-size:14px;width:100%;min-height:44px;transition:border-color .15s,box-shadow .15s;
+  }
+  .field textarea{min-height:150px;line-height:1.6;resize:vertical;}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(246,185,63,.15);}
+  .fieldmeta{display:flex;justify-content:space-between;gap:var(--s3);font-size:12px;color:var(--faint);}
+  .alert{border-radius:var(--r-sm);padding:13px 15px;font-size:13.5px;margin:var(--s3) 0;line-height:1.55;}
+  .alert.err{background:rgba(255,92,108,.08);border:1px solid var(--red-deep);color:#ffb3ba;}
+  .alert.ok{background:rgba(61,220,132,.07);border:1px solid var(--green-deep);color:#a8f0c9;}
+  .alert.warn{background:rgba(246,185,63,.07);border:1px solid var(--gold-dim);color:#ffe2a1;}
+
+  /* toasts */
+  #toastWrap{position:fixed;top:var(--s5);right:var(--s4);z-index:200;display:flex;flex-direction:column;gap:var(--s2);max-width:min(380px,90vw);}
+  .toast{display:flex;gap:var(--s3);align-items:flex-start;background:var(--raised-2);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--r-sm);padding:13px 15px;font-size:13.5px;box-shadow:0 16px 48px rgba(0,0,0,.45);animation:toastIn .25s ease-out;cursor:pointer;line-height:1.5;}
+  .toast.ok{border-left-color:var(--green);} .toast.ok .ticon{color:var(--green);}
+  .toast.err{border-left-color:var(--red);} .toast.err .ticon{color:var(--red);}
+  .toast.warn{border-left-color:var(--gold);} .toast.warn .ticon{color:var(--gold-strong);}
+  .ticon{color:var(--blue);margin-top:1px;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
+  .toast.gone{opacity:0;transform:translateX(16px);transition:.3s;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spinner{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:var(--gold);animation:spin .8s linear infinite;vertical-align:-2px;margin-right:8px;}
+
+  /* clock */
+  .clockbar{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap;background:linear-gradient(135deg,var(--raised),var(--surface));border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4) var(--s5);margin-bottom:var(--s4);box-shadow:var(--shadow);}
+  .clocktime{font-size:clamp(30px,5vw,42px);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:1.5px;line-height:1;}
+  .clocktime.late{color:var(--red);} .clocktime.running{color:var(--green);}
+  .clocktime.urgent{color:var(--red);animation:blink 1s infinite;} .clocktime.closed{color:var(--faint);}
+  .clockprog{flex:1 1 220px;height:10px;background:#0a0f1c;border-radius:999px;overflow:hidden;min-width:160px;border:1px solid var(--line-soft);}
+  .clockprog>div{height:100%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:999px;transition:width 1s linear;}
+  .clockprog.late>div{background:linear-gradient(90deg,var(--red),#ff8a5c);}
+
+  /* scores */
+  .scores{display:flex;gap:var(--s2);flex-wrap:wrap;}
+  .scorechip{min-width:78px;text-align:center;background:var(--raised);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 6px;}
+  .scorechip .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .scorechip .k{font-size:10px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);margin-top:3px;font-weight:700;}
+  .scorechip.hi .v{color:var(--green);} .scorechip.mid .v{color:var(--gold-strong);} .scorechip.lo .v{color:var(--red);}
+  .totalchip{background:rgba(246,185,63,.1);border-color:var(--gold-dim);} .totalchip .v{color:var(--gold-strong);}
+
+  /* board */
+  table.lb{width:100%;border-collapse:collapse;font-size:14px;}
+  table.lb th{text-align:left;color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:1.2px;padding:10px;border-bottom:1px solid var(--line);}
+  table.lb td{padding:12px 10px;border-bottom:1px solid var(--line-soft);}
+  table.lb tbody tr:hover td{background:rgba(255,255,255,.025);}
+  .rankcirc{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;font-size:12px;font-weight:800;background:var(--raised-2);color:var(--dim);border:1px solid var(--line);}
+  .rankcirc.r1{background:linear-gradient(135deg,#ffd76a,#c98d1e);color:#221801;border:none;}
+  .rankcirc.r2{background:linear-gradient(135deg,#e8ecf4,#9aa5b8);color:#1a2130;border:none;}
+  .rankcirc.r3{background:linear-gradient(135deg,#e8a06a,#a35d2a);color:#241305;border:none;}
+  .daycell{font-variant-numeric:tabular-nums;} .daycell.empty{color:#31405f;}
+
+  /* spotlights */
+  .spotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:var(--s3);margin-top:var(--s3);}
+  .badge{display:flex;align-items:center;gap:var(--s3);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);transition:transform .15s,border-color .15s;}
+  .badge:hover{transform:translateY(-2px);border-color:var(--gold-dim);}
+  .badge .ico{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;background:var(--raised-2);border-radius:12px;border:1px solid var(--line);color:var(--gold-strong);}
+  .badge .ico .ic{width:20px;height:20px;}
+  .badge .lbl2{font-weight:800;font-size:13px;line-height:1.3;}
+  .badge .who{color:var(--gold-strong);font-size:13px;font-weight:600;}
+  .badge .sub{color:var(--faint);font-size:11px;}
+  .badge.week{border-color:var(--gold-dim);background:linear-gradient(180deg,rgba(246,185,63,.08),var(--raised));}
+  .badge.pop{animation:popIn .5s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes popIn{from{opacity:0;transform:scale(.85);}to{opacity:1;transform:none;}}
+
+  /* mission */
+  .missionhero{background:linear-gradient(135deg,rgba(246,185,63,.09),transparent 55%),var(--raised);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:var(--r-md);padding:var(--s4) var(--s5);line-height:1.7;font-size:15px;margin:var(--s4) 0;}
+  .wordbox{background:#0e1524;border:1px dashed #33436b;border-radius:var(--r-md);padding:var(--s4) var(--s5);margin:var(--s4) 0;}
+  .wordbox .w{padding:6px 0;font-size:14px;line-height:1.55;}
+  .wordbox .w b{color:var(--blue);} .wordbox .w .m{color:var(--dim);}
+  ol.steps{margin:var(--s2) 0 0 4px;list-style:none;counter-reset:step;}
+  ol.steps li{counter-increment:step;position:relative;padding:9px 0 9px 48px;line-height:1.6;font-size:14px;border-bottom:1px dashed var(--line-soft);}
+  ol.steps li:last-child{border-bottom:none;}
+  ol.steps li::before{content:counter(step);position:absolute;left:0;top:9px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(246,185,63,.12);border:1px solid var(--gold-dim);color:var(--gold-strong);font-weight:800;font-size:13px;}
+  ul.check{list-style:none;margin:var(--s2) 0;}
+  ul.check li{padding:7px 0 7px 28px;position:relative;line-height:1.55;font-size:14px;}
+  ul.check li::before{content:"";position:absolute;left:4px;top:11px;width:14px;height:14px;border:2px solid var(--gold-dim);border-radius:4px;}
+  ul.caveats li::before{border-color:var(--red-deep);background:rgba(255,92,108,.12);}
+  .catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:var(--s3);margin-top:var(--s2);}
+  .catgrid .cat{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--s3) var(--s4);font-size:13px;line-height:1.6;}
+  .catgrid .cat b{color:var(--gold-strong);}
+
+  /* day strip */
+  .daystrip{display:flex;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4);}
+  .daystrip .d{flex:1 1 155px;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:var(--s3) var(--s4);cursor:pointer;min-width:150px;position:relative;transition:border-color .15s,transform .15s;}
+  .daystrip .d:hover{transform:translateY(-2px);border-color:var(--line);}
+  .daystrip .d.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);}
+  .daystrip .d .wd{font-size:10.5px;text-transform:uppercase;letter-spacing:1.3px;color:var(--faint);font-weight:800;}
+  .daystrip .d .t{font-weight:800;margin-top:3px;font-size:13.5px;line-height:1.35;}
+  .daystrip .d .tm{font-size:12px;color:var(--dim);margin-top:var(--s1);display:flex;align-items:center;gap:4px;}
+  .daystrip .d .tm .ic{width:12px;height:12px;}
+  .daystrip .d .stat{position:absolute;top:var(--s3);right:var(--s3);color:var(--green);}
+  .daystrip .d .stat.graded{color:var(--blue);}
+
+  /* student "Today" page is a single column of numbered steps (.steps) */
+
+  /* progress */
+  .progrow{display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s2);}
+  .progcard{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);min-width:135px;}
+  .progcard.pb{border-color:var(--gold-dim);background:linear-gradient(180deg,rgba(246,185,63,.09),var(--raised));}
+  .progcard .t{font-size:24px;font-weight:800;color:var(--gold-strong);font-variant-numeric:tabular-nums;}
+  .progcard .k{font-size:10.5px;text-transform:uppercase;letter-spacing:1.1px;color:var(--faint);font-weight:800;}
+  .progcard .d{font-size:12.5px;margin-top:4px;font-weight:700;}
+  .up{color:var(--green);} .down{color:var(--red);} .flat{color:var(--faint);}
+
+  /* dropzone */
+  .dropzone{border:2px dashed var(--line);border-radius:var(--r-md);padding:var(--s5);text-align:center;color:var(--dim);font-size:13.5px;cursor:pointer;transition:border-color .15s,background .15s;min-height:44px;display:flex;align-items:center;justify-content:center;gap:var(--s2);}
+  .dropzone:hover,.dropzone.over{border-color:var(--gold);background:rgba(246,185,63,.05);color:var(--text);}
+  .filechips{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s2);}
+  .filechip{display:inline-flex;align-items:center;gap:var(--s2);background:var(--raised);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12.5px;}
+  .filechip button{background:none;border:none;color:var(--faint);font-size:14px;padding:0 2px;}
+  .filechip button:hover{color:var(--red);}
+
+  /* empty */
+  .empty{text-align:center;padding:var(--s6) var(--s4);color:var(--dim);font-size:14px;line-height:1.7;}
+  .empty .big{margin-bottom:var(--s3);color:var(--faint);}
+  .empty .big .ic{width:42px;height:42px;}
+
+  /* admin */
+  .admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:var(--s5);align-items:start;}
+  .pagelead{max-width:760px;font-size:14.5px;line-height:1.75;color:var(--dim);margin:0 0 var(--s5);}
+  .steps{display:flex;flex-direction:column;gap:var(--s5);max-width:820px;}
+  .stepline{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3);}
+  .stepnum{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--raised-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--gold-strong);}
+  .stepnum.ghost{color:var(--dim);border-style:dashed;}
+  .stepnum.gold{background:var(--gold-strong);color:#1a1408;border-color:var(--gold-strong);}
+  .moreopts{margin-top:var(--s3);border:1px dashed var(--line);border-radius:10px;padding:var(--s2) var(--s3);}
+  .moreopts summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--dim);user-select:none;}
+  .moreopts[open] summary{margin-bottom:var(--s3);}
+  .studentrow{display:flex;align-items:center;gap:var(--s2);padding:var(--s2) 0;border-bottom:1px solid var(--line-soft);font-size:14px;flex-wrap:wrap;}
+  .studentrow .x{margin-left:auto;background:none;border:none;color:var(--faint);font-size:16px;min-width:32px;min-height:32px;display:grid;place-items:center;}
+  .studentrow .x:hover{color:var(--red);}
+  .studentrow input{background:var(--raised);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font-size:12.5px;width:135px;}
+  .gradeeditor{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:var(--s3);}
+  .radiochoice{display:flex;gap:var(--s3);align-items:flex-start;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:var(--s2);cursor:pointer;font-size:13px;line-height:1.5;transition:border-color .12s,background .12s;}
+  .radiochoice:hover{border-color:var(--gold-dim);}
+  .radiochoice.on{border-color:var(--gold);background:rgba(246,185,63,.06);}
+  .radiochoice input{margin-top:3px;accent-color:var(--gold);}
+  .brainstatus{font-size:11px;padding:2px 9px;border-radius:999px;margin-left:var(--s2);font-weight:700;}
+  .brainstatus.on{background:rgba(61,220,132,.12);color:var(--green);}
+  .brainstatus.off{background:rgba(255,92,108,.12);color:var(--red);}
+
+  .skel{border-radius:var(--r-md);background:linear-gradient(100deg,var(--surface) 40%,var(--raised) 50%,var(--surface) 60%);background-size:200% 100%;animation:shimmer 1.4s infinite;height:120px;margin-bottom:var(--s4);}
+  @keyframes shimmer{to{background-position:-200% 0;}}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:300;}
+  footer{max-width:1120px;width:100%;margin:0 auto;padding:var(--s5) var(--s5) var(--s6);color:var(--faint);font-size:12px;text-align:center;border-top:1px solid var(--line-soft);}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+
+<!-- ============ SVG ICON SPRITE ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v6a5 5 0 0 1-10 0V4zM7 4H4v2a3 3 0 0 0 3 3M17 4h3v2a3 3 0 0 1-3 3"/></symbol>
+    <symbol id="i-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M5 21a7 7 0 0 1 14 0"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M2 21a7 7 0 0 1 14 0M17 4a3.5 3.5 0 0 1 0 7M22 21a6 6 0 0 0-5-5.9"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+    <symbol id="i-console" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.8 4.7L18.5 10.5l-4.7 1.8L12 17l-1.8-4.7L5.5 10.5l4.7-1.8L12 4z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1.3 1.5 1.5 2.5h5c.2-1 .7-1.7 1.5-2.5A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+    <symbol id="i-filecheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></symbol>
+    <symbol id="i-medal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M9 3h6l-1.5 7.5h-3L9 3z"/><path d="M12 13.5v1.8l1 .7"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M4 17l1.5-9L10 12l2-7 2 7 4.5-4L20 17H4z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4M12 17.5v.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+    <symbol id="i-mirror" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M10 8c.5-1 1.2-1.5 2-1.5"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5v14l12-7-12-7z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3 3.5 3.5 0 0 0-2.6 5.9A3.5 3.5 0 0 0 8 18.5c.6 1.5 2.2 2.5 4 2.5s3.4-1 4-2.5a3.5 3.5 0 0 0 1.6-6.6A3.5 3.5 0 0 0 15 6a3 3 0 0 0-3-3z"/><path d="M12 3v18"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ GATE: one unified login ============ -->
+<div id="gate" class="gate">
+  <div class="gatecard">
+    <div class="gatebrand">
+      <div class="mark"><svg class="ic"><use href="#i-bolt"/></svg></div>
+      <div>
+        <h1>IdeaBox Arena</h1>
+        <p>Month 3 · Week 4 — Practical Week</p>
+      </div>
+    </div>
+    <div class="gateform">
+      <div class="field">
+        <label for="gateUser">Username</label>
+        <input id="gateUser" autocomplete="username" placeholder="e.g. emmanuel" autocapitalize="none">
+      </div>
+      <div class="field">
+        <label for="gatePass">Password</label>
+        <input type="password" id="gatePass" autocomplete="current-password" placeholder="Your password">
+      </div>
+      <button class="btn" id="gateLoginBtn" style="width:100%;"><svg class="ic"><use href="#i-logout"/></svg> Sign in</button>
+    </div>
+    <div id="gateErr"></div>
+    <p class="gatefoot">One sign-in for everyone — the Arena detects your role and opens your space.<br>Forgot your password? Ask your instructor for a reset.</p>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="gatebrand" style="margin:0;">
+      <div class="mark"><svg class="ic"><use href="#i-bolt"/></svg></div>
+      <div>
+        <h1 style="font-size:16px;font-weight:800;">IdeaBox Arena</h1>
+        <p style="font-size:11px;color:var(--faint);">Practical Week</p>
+      </div>
+    </div>
+    <nav class="sidenav" id="sideNav" aria-label="Main"></nav>
+    <div class="sidefoot">
+      <div class="userchip">
+        <div class="avatar" id="sideAvatar">?</div>
+        <div><div class="nm" id="sideName">—</div><div class="rl" id="sideRole">—</div></div>
+      </div>
+      <button class="signout" id="signOutBtn"><svg class="ic"><use href="#i-logout"/></svg> Sign out</button>
+    </div>
+  </aside>
+
+  <div class="maincol">
+    <header class="topbar">
+      <h1 id="pageTitle">Board</h1>
+      <div class="headclock" id="headClock" role="status" aria-live="polite" title="Live clock — opens the Class board">
+        <span class="dot"></span><span id="headClockText">— · --:--</span>
+      </div>
+    </header>
+
+    <main>
+      <div id="demoBanner" class="alert warn" style="display:none;">
+        Demo mode — the server is not reachable, this is a read-only preview with sample data.
+        Run <code>node server.js</code> in the project folder to go live.
+      </div>
+
+      <!-- BOARD -->
+      <section id="view-board" style="display:none;">
+        <div class="clockbar" id="clockbarBoard"></div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s2);">
+            <h2 style="margin:0;">Class board</h2>
+            <span class="pill gold" id="lbActiveDay"></span>
+            <span class="pill blue" id="lbMode"></span>
+            <span class="faint" style="margin-left:auto;" id="lbMeta"></span>
+          </div>
+          <p class="muted" id="lbModeDesc" style="margin-bottom:var(--s4);line-height:1.65;font-size:14px;"></p>
+          <div id="spotlightWall"></div>
+          <div id="boardTableWrap" style="overflow-x:auto;margin-top:var(--s4);"></div>
+          <p class="faint" style="margin-top:var(--s3);" id="lbNote"></p>
+        </div>
+        <div class="admin-grid" style="margin-top:var(--s4);max-width:820px;">
+          <div class="card" id="progressCard">
+            <h3><svg class="ic"><use href="#i-trend"/></svg> My progress — you vs you</h3>
+            <div id="progressOut"></div>
+          </div>
+          <div class="card" id="businessCard">
+            <h3><svg class="ic"><use href="#i-user"/></svg> Your board nickname</h3>
+            <p class="faint" style="margin-bottom:var(--s3);">Optional — pick a fun name to show on the board instead of your real name.</p>
+            <div class="field" style="margin:0;">
+              <label for="codenameInput">Nickname (shown on the board)</label>
+              <div style="display:flex;gap:var(--s2);">
+                <input id="codenameInput" maxlength="24" placeholder="e.g. Golden Falcon">
+                <button class="btn small ghost" id="codenameBtn">Save</button>
+              </div>
+              <span class="faint" id="codenameNote"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MISSIONS -->
+      <section id="view-missions" style="display:none;">
+        <div class="daystrip" id="briefDayStrip"></div>
+        <div id="briefDetail"></div>
+      </section>
+
+      <!-- TODAY (student home) -->
+      <section id="view-myspace" style="display:none;">
+        <div class="clockbar" id="clockbarStudent"></div>
+        <div class="daystrip" id="studentDayStrip"></div>
+        <div class="steps">
+          <div class="card stepcard">
+            <div class="stepline"><span class="stepnum">1</span><h3 style="margin:0;">Read your mission</h3></div>
+            <div id="businessOut" class="muted" style="font-size:14px;line-height:1.65;margin-bottom:var(--s2);"></div>
+            <div id="myStartOut" style="margin-bottom:var(--s3);"></div>
+            <div class="brief" id="studentMission"></div>
+          </div>
+          <div class="card stepcard">
+            <div class="stepline"><span class="stepnum">2</span><h3 style="margin:0;">Paste your work and hand it in</h3></div>
+            <p class="faint" id="submitHint"></p>
+            <div id="submitAlerts"></div>
+            <div class="field" style="margin-top:var(--s3);">
+              <label for="subText">Your work — paste EVERYTHING the brief asks for (the deliverables AND the prompt log)</label>
+              <textarea id="subText" rows="10" placeholder="Paste your finished work here… (your draft is saved automatically on this device)"></textarea>
+              <div class="fieldmeta"><span id="draftNote"></span><span id="charCount">0 characters</span></div>
+            </div>
+            <details class="moreopts">
+              <summary>Add links or images (optional)</summary>
+              <div class="row">
+                <div class="field grow">
+                  <label for="subLinks">Links (Drive / GitHub / deployed page) — one per line</label>
+                  <textarea id="subLinks" rows="2" placeholder="https://…"></textarea>
+                </div>
+                <div class="field grow">
+                  <label>Image files (max 4 · 3 MB each) — the AI gets a written look at these, and the human judge reviews them</label>
+                  <div class="dropzone" id="fileDrop" tabindex="0" role="button" aria-label="Add image files: click or drop them here">
+                    <svg class="ic"><use href="#i-upload"/></svg> Click to choose images — or drop them here
+                  </div>
+                  <input type="file" id="subFiles" accept="image/*" multiple hidden>
+                  <div class="filechips" id="fileChips"></div>
+                </div>
+              </div>
+            </details>
+            <div style="display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin-top:var(--s3);">
+              <button class="btn" id="submitBtn"><svg class="ic"><use href="#i-send"/></svg> Submit for the day</button>
+              <button class="btn ghost small" id="selfCheckBtn"><svg class="ic"><use href="#i-mirror"/></svg> Practice check first (never counts)</button>
+            </div>
+          </div>
+          <div class="card stepcard" id="selfCheckCard" style="display:none;">
+            <div class="stepline"><span class="stepnum ghost">✓</span><h3 style="margin:0;">Practice check — rehearsal only, never counts</h3></div>
+            <div id="selfCheckOut"></div>
+          </div>
+          <div class="card stepcard" id="myGradeCard" style="display:none;">
+            <div class="stepline"><span class="stepnum gold">★</span><h3 style="margin:0;">Your official grade</h3></div>
+            <div id="myGradeOut"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RULES -->
+      <section id="view-rules" style="display:none;">
+        <div class="card">
+          <h2>How this week works</h2>
+          <p class="muted" style="margin:var(--s2) 0 var(--s5);line-height:1.7;font-size:14.5px;">
+            Five days, five brand-new timed projects. Each day the instructor starts the clock;
+            you build, you submit before the buzzer, and the <b>AI grading agent</b> scores your
+            submission across six categories. You are graded <b>against the brief — not against each other</b>.
+          </p>
+          <h3><svg class="ic"><use href="#i-filecheck"/></svg> The six categories (each 0–10, total 60 per day)</h3>
+          <div class="catgrid" id="rulesCats"></div>
+          <h3 style="margin-top:var(--s6);"><svg class="ic"><use href="#i-clock"/></svg> Late policy — the clock is the judge of time</h3>
+          <p class="muted" id="rulesLate" style="line-height:1.7;font-size:14px;"></p>
+          <h3 style="margin-top:var(--s6);"><svg class="ic"><use href="#i-medal"/></svg> Spotlight badges</h3>
+          <p class="muted" id="rulesBadges" style="line-height:1.7;font-size:14px;"></p>
+          <h3 style="margin-top:var(--s6);"><svg class="ic"><use href="#i-brain"/></svg> The grading agent & its brains</h3>
+          <p class="muted" style="line-height:1.7;font-size:14px;">
+            The grading agent runs on the brain the instructor picks — <b>Mistral</b>, <b>NaraRouter</b> or
+            <b>UnoRouter</b> (or <b>auto</b>, which tries them in order until one answers). It reads every
+            submission against the day's brief and caveats, then scores Goal, Craft, Creativity, Technical
+            and Process. <b>Time Discipline is computed by the server from the clock — never by the AI.</b>
+            It grades what you paste, so paste your prompt logs and descriptions. When the instructor
+              switches on the <b>Vision pass</b>, a separate vision model also reads your uploaded images and
+            adds what it sees as extra evidence — but your pasted work still counts most, and the human
+            instructor reviews attached files and can adjust any score.
+          </p>
+          <h3 style="margin-top:var(--s6);"><svg class="ic"><use href="#i-play"/></svg> Video days (Day 3 & Day 5)</h3>
+          <p class="muted" style="line-height:1.7;font-size:14px;">
+            Day 3 (<b>The 30-Second Sell</b>) and Day 5 (<b>Launch Day</b>) ask for a video. This app takes
+            <b>images, not video files</b> — so on video days you paste the <b>storyboard</b>, the
+            <b>voice script</b>, <b>every prompt</b> you used, the <b>exact duration</b>, and a
+            <b>link or full path to the MP4</b>. Attach a <b>thumbnail</b> so the vision pass can see a frame.
+            The AI grades what you paste; the instructor watches the actual clip. No AI here can watch video —
+            your written evidence is what earns the Process and Goal scores.
+          </p>
+          <h3 style="margin-top:var(--s6);"><svg class="ic"><use href="#i-filecheck"/></svg> The golden rule</h3>
+          <p class="muted" style="line-height:1.7;font-size:14px;">
+            <b>Proof of steps, not vibes.</b> Every submission needs its evidence pasted in: the prompts,
+            the traces, the logs. No evidence = low Process score, whatever the result looks like.
+          </p>
+        </div>
+      </section>
+
+      <!-- RUN THE DAY -->
+      <section id="view-run" style="display:none;">
+        <div class="clockbar" id="clockbarRun"></div>
+        <p class="pagelead">Everything you touch while the class is building: which day is live, the clock, the grading brain and how much of the board the class sees.</p>
+        <div class="admin-grid">
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-clock"/></svg> Active day & clock</h3>
+            <div class="field"><label for="adminDaySelect">Active day</label><select id="adminDaySelect"></select></div>
+            <div class="field"><label for="adminDuration">Clock duration (minutes) — defaults to the day's limit</label><input type="number" id="adminDuration" min="5" max="240"></div>
+            <div style="display:flex;gap:var(--s2);flex-wrap:wrap;">
+              <button class="btn" id="startClockBtn"><svg class="ic"><use href="#i-play"/></svg> Start clock</button>
+              <button class="btn ghost" id="closeDayBtn"><svg class="ic"><use href="#i-stop"/></svg> Close day</button>
+              <button class="btn ghost" id="reopenBtn"><svg class="ic"><use href="#i-refresh"/></svg> Reopen</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-brain"/></svg> Grading brain</h3>
+            <p class="faint" style="margin-bottom:var(--s3);">Which door grades today? <b>auto</b> tries the configured ones in order (Mistral → NaraRouter → UnoRouter).</p>
+            <div id="brainChoices"></div>
+          </div>
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-trophy"/></svg> Board mode</h3>
+            <p class="faint" style="margin-bottom:var(--s3);">How much of the standings the class sees. Growth Mode is the kind default.</p>
+            <div id="modeChoices"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- START TRACKER -->
+      <section id="view-tracker" style="display:none;">
+        <div class="clockbar" id="clockbarTracker"></div>
+        <p class="pagelead">Time your students live. Everyone is stamped the moment they first sign in on the active day — watch who started, who is still building, and who went over the day's limit.</p>
+        <div class="card">
+          <h3><svg class="ic"><use href="#i-clock"/></svg> Day <span id="startTrackerDay"></span> — who started when</h3>
+          <div style="overflow-x:auto;"><table class="lb" id="startTrackerTable"><tbody></tbody></table></div>
+          <p class="faint" style="margin-top:var(--s3);">Elapsed updates every second. A student who hasn't signed in yet shows as "not started".</p>
+        </div>
+      </section>
+
+      <!-- PEOPLE -->
+      <section id="view-people" style="display:none;">
+        <p class="pagelead">Your class, their logins, their arena names. Add a student here and their account is created automatically.</p>
+        <div class="admin-grid">
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-users"/></svg> Roster</h3>
+            <div style="display:flex;gap:var(--s2);margin-bottom:var(--s3);">
+              <input id="newStudentName" placeholder="New student name" style="flex:1;background:var(--raised);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px 13px;font-size:14px;">
+              <button class="btn small" id="addStudentBtn"><svg class="ic"><use href="#i-plus"/></svg> Add</button>
+            </div>
+            <p class="faint" style="margin-bottom:var(--s2);">Adding a student also creates their login — you'll see the new password once. Students can set their own arena name from their dashboard.</p>
+            <div id="rosterList" style="max-height:340px;overflow-y:auto;"></div>
+          </div>
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-logout"/></svg> Accounts & passwords</h3>
+            <p class="faint" style="margin-bottom:var(--s3);">Everyone signs in with one form — username + password. Share these privately. A student forgot theirs? Hit reset and hand them the new one.</p>
+            <div id="accountsTable" style="overflow-x:auto;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- GRADING -->
+      <section id="view-grading" style="display:none;">
+        <div class="clockbar" id="clockbarGrading"></div>
+        <p class="pagelead">Send the day's submissions to the AI agent, then review and adjust any score where your human eye saw more.</p>
+        <div class="admin-grid">
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-filecheck"/></svg> Grade Day <span id="gradeDayLabel"></span> with the AI agent</h3>
+            <p class="faint" style="margin-bottom:var(--s3);">Grades every student who submitted on the active day, one by one. This can take a minute or two.</p>
+            <label class="radiochoice" style="margin-bottom:var(--s3);display:flex;">
+              <input type="checkbox" id="visionToggle">
+              <span><b>Vision pass</b> — before grading, a free vision model reads each student's uploaded images and adds what it sees as extra evidence. Pasted work still counts most; your eye has final say.</span>
+            </label>
+            <button class="btn" id="gradeAllBtn"><svg class="ic"><use href="#i-bolt"/></svg> Grade all submissions</button>
+            <div id="gradeProgress" class="muted" style="margin-top:var(--s3);font-size:13px;"></div>
+          </div>
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-wrench"/></svg> Adjust a grade (human override)</h3>
+            <div class="field"><label for="overrideStudent">Student</label><select id="overrideStudent"></select></div>
+            <div class="gradeeditor" id="overrideScores"></div>
+            <div class="field" style="margin-top:var(--s3);"><label for="overrideNote">Note (optional)</label><input id="overrideNote" placeholder="e.g. video reviewed live — raised craft"></div>
+            <button class="btn small" id="overrideBtn">Save override</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACCOUNT (change password) -->
+      <section id="view-account" style="display:none;">
+        <p class="pagelead">Your login, your password. Change it any time — the new one works the moment you save it.</p>
+        <div class="card" style="max-width:520px;">
+          <h3><svg class="ic"><use href="#i-lock"/></svg> Change password</h3>
+          <p class="faint">Signed in as <b id="accUsername">—</b>.</p>
+          <div id="accAlerts"></div>
+          <div class="field" style="margin-top:var(--s3);">
+            <label for="accCurrent">Current password</label>
+            <input type="password" id="accCurrent" autocomplete="current-password" placeholder="Your current password">
+          </div>
+          <div class="field" style="margin-top:var(--s3);">
+            <label for="accNext">New password (4–40 characters)</label>
+            <input type="password" id="accNext" autocomplete="new-password" placeholder="Pick something you'll remember">
+          </div>
+          <div class="field" style="margin-top:var(--s3);">
+            <label for="accNext2">Repeat new password</label>
+            <input type="password" id="accNext2" autocomplete="new-password" placeholder="Type it again">
+          </div>
+          <div style="display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin-top:var(--s4);">
+            <button class="btn" id="accSaveBtn"><svg class="ic"><use href="#i-lock"/></svg> Save new password</button>
+          </div>
+          <p class="faint" style="margin-top:var(--s3);">Forgot your current password? Ask your instructor — they can reset it from People.</p>
+        </div>
+      </section>
+
+      <!-- STANDINGS & DATA -->
+      <section id="view-standings" style="display:none;">
+        <p class="pagelead">The full picture only you can see: every score, every category, exports for your records — and the reset button, kept safely at the bottom.</p>
+        <div class="card">
+          <h3><svg class="ic"><use href="#i-trophy"/></svg> Full standings (instructor only)</h3>
+          <div style="overflow-x:auto;"><table class="lb" id="adminFullTable"><tbody></tbody></table></div>
+          <h3 style="margin-top:var(--s5);">Day <span id="detailDayLabel"></span> category detail</h3>
+          <div style="overflow-x:auto;"><table class="lb" id="detailTable"><tbody></tbody></table></div>
+        </div>
+        <div class="card" style="margin-top:var(--s4);">
+          <h3><svg class="ic"><use href="#i-download"/></svg> Export & danger zone</h3>
+          <div style="display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s4);">
+            <button class="btn ghost small" id="exportStandings"><svg class="ic"><use href="#i-download"/></svg> Standings CSV</button>
+            <button class="btn ghost small" id="exportDetailed"><svg class="ic"><use href="#i-download"/></svg> Detailed CSV</button>
+          </div>
+          <button class="btn danger small" id="resetBtn"><svg class="ic"><use href="#i-trash"/></svg> Reset the whole week</button>
+          <p class="faint" style="margin-top:var(--s2);">Wipes submissions, grades and timing for the week. Login accounts are kept — the roster rebuilds itself from them.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes.</footer>
+  </div>
+
+  <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
+</div>
+
+<div id="toastWrap" aria-live="polite"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+/* =========================================================
+   IdeaBox Arena — v3 shell
+   Unified login → role-routed app shell (sidebar / tab bar)
+   ========================================================= */
+const $ = (id) => document.getElementById(id);
+const icon = (n, cls) => `<svg class="ic ${cls||''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const CATS = ['goal','craft','creativity','technical','process','time'];
+const CAT_LABEL = {goal:'Goal',craft:'Craft',creativity:'Creative',technical:'Technical',process:'Process',time:'Time'};
+const BADGE_ICON = {goal:'target',craft:'sparkles',creativity:'bulb',technical:'wrench',process:'filecheck',time:'clock',improved:'trend',personalBest:'medal',leader:'crown'};
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let BOOT=null, DEMO=false, SESSION=null, PIN='', briefDay=1, studentDay=1;
+let clockTimer=null, lastAdmin=null, pendingFiles=[], lastAnimatedTotal=null, pbCelebrated={}, draftTimer=null, currentView='board';
+
+const NAV_ITEMS = [
+  {id:'myspace',  label:'Today',       icon:'user',   roles:['student']},
+  {id:'board',    label:'Class board', icon:'trophy', roles:['student','instructor']},
+  {id:'missions', label:'All missions',icon:'scroll', roles:['student','instructor']},
+  {id:'rules',    label:'How it works',icon:'book',   roles:['student','instructor']},
+  {id:'run',      label:'Run the day', icon:'play',   roles:['instructor']},
+  {id:'tracker',  label:'Start tracker',icon:'clock', roles:['instructor']},
+  {id:'people',   label:'People',      icon:'users',  roles:['instructor']},
+  {id:'grading',  label:'Grading',     icon:'bolt',   roles:['instructor']},
+  {id:'standings',label:'Standings',   icon:'medal',  roles:['instructor']},
+  {id:'account',  label:'My account',  icon:'lock',   roles:['student','instructor']},
+];
+
+/* ---------- demo data ---------- */
+const DEMO_ROSTER = ['Amina','Chidi','Ngozi','Tunde','Blessing','Emeka'];
+const DEMO_DAYS = [
+  {day:1,weekday:'Monday',title:'The Prompt Sprint',tagline:'Prompts only. One hour, one complete business starter pack.',skills:'Month 1',timeLimitMin:60,
+   mission:'Today {business} has hired YOU as their AI consultant. Using ONLY text prompts, build their Business Starter Pack in 60 minutes.',
+   simpleWords:[{term:'RBR',meaning:'Role-Background-Rules-Task — the 4-part prompt frame.'},{term:'Self-checking pass',meaning:'The AI finds and fixes its own mistakes.'}],
+   steps:['Read your assigned business.','Write ONE RBR prompt for the description.','Prompt a ₦ price table.','Chain-of-Thought promo plan.','Few-Shot caption.','Self-check pass.','Paste everything + PROMPT LOG.'],
+   ifStuck:'Use the RBR skeleton from Month 1.', ifEarly:'Add a complaint-reply template.',
+   doneWhen:['All four pieces exist','PROMPT LOG pasted','Self-check shows a real correction'],
+   deliverables:['Pieces 1–4','PROMPT LOG','Self-check'],
+   caveats:['Text prompts only','Realistic ₦ prices','No class examples'], evidenceNote:'Paste everything.'},
+  {day:2,weekday:'Tuesday',title:'Brand From Zero',tagline:'Logo, two matching product shots, one before/after.',skills:'Month 2',timeLimitMin:60,mission:'Sample brief — run the real server.',simpleWords:[],steps:['Step 1','Step 2'],ifStuck:'',ifEarly:'',doneWhen:['x'],deliverables:['x'],caveats:['x'],evidenceNote:'x'},
+  {day:3,weekday:'Wednesday',title:'The 30-Second Sell',tagline:'A 15–30 second advert.',skills:'Month 2',timeLimitMin:75,mission:'Sample brief.',simpleWords:[],steps:[],ifStuck:'',ifEarly:'',doneWhen:['x'],deliverables:['x'],caveats:['x'],evidenceNote:'x'},
+  {day:4,weekday:'Thursday',title:'Agent in a Box',tagline:'One working agent with a gate that never lies.',skills:'Month 3',timeLimitMin:90,mission:'Sample brief.',simpleWords:[],steps:[],ifStuck:'',ifEarly:'',doneWhen:['x'],deliverables:['x'],caveats:['x'],evidenceNote:'x'},
+  {day:5,weekday:'Friday',title:'Launch Day',tagline:'Everything you learned. Two hours — then 3 minutes on stage.',skills:'All months',timeLimitMin:120,mission:'Sample brief.',simpleWords:[],steps:[],ifStuck:'',ifEarly:'',doneWhen:['x'],deliverables:['x'],caveats:['x'],evidenceNote:'x'}
+];
+function demoBoot(){
+  return {
+    ok:true, mode:'demo', arenaName:'IdeaBox Arena', weekTitle:'Month 3 · Week 4 — Practical Week',
+    rules:{
+      boardModes:{
+        growth:'Growth Mode — the default. No ranks shown. The class sees the Spotlight Wall (badges), and every student privately sees their own scores, personal best and improvement.',
+        podium:'Podium Mode — only the top 3 appear on the shared board. Everyone else is listed alphabetically as a participant.',
+        full:'Full Mode — classic leaderboard with ranks and every score visible.'
+      },
+      categories:{
+        goal:'Goal Completion — you delivered EVERY piece the brief asked for.',
+        craft:'Craft & Quality — neat, formatted properly, realistic, consistent.',
+        creativity:'Creativity — original, specific ideas.',
+        technical:'Technical Correctness — the tools used the right way.',
+        process:'Process Evidence — prompts, traces and logs pasted. Proof of steps, not vibes.',
+        time:'Time Discipline — the server clock decides this one.'
+      },
+      latePolicy:'Before the buzzer = 10. Late ≤15 = 7. ≤30 = 5. ≤60 = 3. Later = 1. No submission = 0.',
+      tieBreak:'Goal Completion first, then earlier submission.',
+      badges:'Every graded day hands out spotlight badges: Goal Getter, Craft Star, Creative Spark, Tech Whiz, Proof Pro, On-Time Champ, Most Improved, Personal Best.'
+    },
+    days: DEMO_DAYS, roster: DEMO_ROSTER, codenames:{Amina:'Golden Falcon'},
+    activeDay:1, clock:{status:'idle', serverTime:Date.now()}, boardMode:'growth',
+    board: DEMO_ROSTER.map(n=>({name:n, display:n==='Amina'?'Golden Falcon':n, participant:true})),
+    spotlights:{perDay:{}, weekly:[
+      {icon:'',type:'goal',label:'Goal Getter',display:'Golden Falcon',scope:'week'},
+      {icon:'',type:'creativity',label:'Creative Spark',display:'Ngozi',scope:'week'},
+      {icon:'',type:'process',label:'Proof Pro',display:'Emeka',scope:'week'}
+    ]},
+    providers:{mistral:{label:'Mistral',configured:false,model:'demo'},unorouter:{label:'UnoRouter',configured:false,model:'demo'},nararouter:{label:'NaraRouter',configured:false,model:'demo'}},
+    brain:'auto', serverTime: Date.now()
+  };
+}
+
+/* ---------- toasts ---------- */
+function toast(msg, type, ms){
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type||'info');
+  const ic = type==='ok' ? 'check' : type==='err' ? 'alert' : type==='warn' ? 'alert' : 'info';
+  t.innerHTML = `<span class="ticon">${icon(ic)}</span><span>${esc(msg)}</span>`;
+  t.addEventListener('click', ()=>t.remove());
+  $('toastWrap').appendChild(t);
+  setTimeout(()=>{ t.classList.add('gone'); setTimeout(()=>t.remove(), 350); }, ms||5000);
+}
+
+/* ---------- confetti ---------- */
+function confetti(){
+  if(REDUCED) return;
+  const cv = $('confetti'), ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const colors = ['#f6b93f','#3ddc84','#6fb1ff','#c2a1ff','#ff5c6c','#ffc95c'];
+  const parts = Array.from({length:120}, ()=>({
+    x: Math.random()*cv.width, y: -20 - Math.random()*cv.height*0.4,
+    w: 6+Math.random()*6, h: 8+Math.random()*8,
+    vy: 2.2+Math.random()*3, vx: -1.5+Math.random()*3,
+    rot: Math.random()*Math.PI, vr: -0.12+Math.random()*0.24,
+    c: colors[(Math.random()*colors.length)|0]
+  }));
+  let frames = 0;
+  (function tick(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    parts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+      ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+    });
+    if(++frames < 240) requestAnimationFrame(tick); else ctx.clearRect(0,0,cv.width,cv.height);
+  })();
+}
+
+/* ---------- api ---------- */
+async function api(path, body){
+  const res = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : undefined);
+  const j = await res.json().catch(()=>({ok:false,error:'BAD_RESPONSE'}));
+  if(!j.ok) throw new Error(j.error || 'Request failed');
+  return j;
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  try{ BOOT = await api('/api/bootstrap'); DEMO=false; }
+  catch(e){ BOOT = demoBoot(); DEMO=true; $('demoBanner').style.display='block'; }
+  // demo escape hatch: no server reachable — walk straight into the instructor console
+  if(DEMO){
+    try{ sessionStorage.setItem('arena-session', JSON.stringify({role:'instructor', name:'Instructor'})); }catch(_){}
+    enterApp({role:'instructor', name:'Instructor'});
+    return;
+  }
+  // restore session (class computers keep it across refreshes)
+  try{
+    const s = JSON.parse(sessionStorage.getItem('arena-session')||'null');
+    if(s){
+      if(s.role==='student' && BOOT.roster.includes(s.name)){ enterApp(s); return; }
+      if(s.role==='instructor'){ enterApp(s); return; }
+    }
+  }catch(_){}
+  startClockTicker();
+  setInterval(async ()=>{ if(!DEMO){ try{ BOOT = await api('/api/bootstrap'); renderAll(); }catch(_){} } }, 15000);
+}
+
+/* ---------- gate: ONE form, username + password ---------- */
+async function doLogin(){
+  const username = $('gateUser').value.trim();
+  const password = $('gatePass').value;
+  if(!username || !password){ $('gateErr').innerHTML = '<div class="alert err">Enter both your username and password.</div>'; return; }
+  const btn = $('gateLoginBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  try{
+    const res = await api('/api/login', {username, password});
+    $('gateErr').innerHTML = '';
+    try{ sessionStorage.setItem('arena-username', username); }catch(_){}
+    enterApp({role:res.role, name:res.name, username:username, pin:res.pin||null, startedAt:res.startedAt||null});
+  }catch(e){
+    $('gateErr').innerHTML = `<div class="alert err">${e.message.includes('BAD_CREDENTIALS')?'Wrong username or password — ask your instructor for a reset.':esc(e.message)}</div>`;
+  }finally{
+    btn.disabled = false; btn.innerHTML = icon('logout') + ' Sign in';
+  }
+}
+function enterApp(session){
+  SESSION = session;
+  if(session.pin) PIN = session.pin;
+  try{ sessionStorage.setItem('arena-session', JSON.stringify(session)); }catch(_){}
+  $('gate').style.display='none';
+  $('app').style.display='block';
+  const initials = session.name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  $('sideAvatar').textContent = initials || '?';
+  $('sideName').textContent = session.role==='student' ? (BOOT.codenames[session.name]||session.name) : 'Instructor';
+  $('sideRole').textContent = session.role;
+  buildNav();
+  if(session.role==='student'){ ME = session.name; openDashboard(session.name, session.lastView||'myspace'); }
+  else {
+    let v = session.lastView||'run';
+    if(v==='console') v='run'; // legacy single-console view was split into pages
+    showView(v);
+  }
+  renderAll();
+  startClockTicker();
+  if(session.role==='instructor' && !lastAdmin && !DEMO) loadAdminData();
+}
+async function loadAdminData(){
+  try{ lastAdmin = await api('/api/admin', {pin:PIN, action:'reloadDays'}); renderAdmin(); }catch(_){}
+}
+function signOut(){
+  try{ sessionStorage.removeItem('arena-session'); }catch(_){}
+  location.reload();
+}
+
+/* ---------- navigation ---------- */
+function navItems(){ return NAV_ITEMS.filter(i=>SESSION && i.roles.includes(SESSION.role)); }
+function buildNav(){
+  const items = navItems();
+  $('sideNav').innerHTML = items.map(i=>
+    `<button class="navitem" data-view="${i.id}">${icon(i.icon)}<span>${i.label}</span></button>`).join('') +
+    `<div class="grp"><span class="lbl">This week</span></div>
+     <div style="padding:var(--s2) 14px;" class="faint" id="sideWeekInfo"></div>`;
+  $('tabNav').innerHTML = items.map(i=>
+    `<button data-view="${i.id}">${icon(i.icon)}<span>${i.label}</span></button>`).join('');
+  [...$('sideNav').querySelectorAll('.navitem'), ...$('tabNav').querySelectorAll('button')].forEach(b=>
+    b.addEventListener('click', ()=>showView(b.dataset.view)));
+}
+function showView(v){
+  currentView = v;
+  if(SESSION){ try{ SESSION.lastView=v; sessionStorage.setItem('arena-session', JSON.stringify(SESSION)); }catch(_){} }
+  const titles = {board:'Class board', missions:'All missions', myspace:'Today', rules:'How it works',
+    run:'Run the day', tracker:'Start tracker', people:'People', grading:'Grading', standings:'Standings & data', account:'My account'};
+  $('pageTitle').textContent = titles[v]||'IdeaBox Arena';
+  document.querySelectorAll('main > section[id^="view-"]').forEach(sec=>{
+    sec.style.display = sec.id===('view-'+v) ? 'block':'none';
+  });
+  document.querySelectorAll('.navitem,[id=tabNav] button').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
+  window.scrollTo({top:0, behavior: REDUCED?'auto':'smooth'});
+  renderAll();
+}
+
+/* ---------- clock ---------- */
+function fmtMS(ms){ const m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000); return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
+function clockHTML(clock, dayLimitMin){
+  const total = (clock.durationMin || dayLimitMin || 60) * 60000;
+  let label='IDLE', cls='', time='--:--', pct=0;
+  if(clock.status==='running' && clock.endsAt){
+    const left = clock.endsAt - Date.now();
+    if(left > 0){
+      cls = left <= 5*60000 ? 'running urgent' : 'running';
+      label = left <= 5*60000 ? 'RUNNING — final minutes' : 'RUNNING — submit before zero';
+      time = fmtMS(left); pct = Math.max(0, Math.min(100, (left/total)*100));
+    } else { label='TIME UP — late window (penalised)'; cls='late'; time='+'+fmtMS(Date.now()-clock.endsAt); pct=100; }
+  } else if(clock.status==='closed'){ label='CLOSED for the day'; cls='closed'; time='00:00'; pct=100; }
+  return `<div><div class="lbl">${label}</div><div class="clocktime ${cls}">${time}</div></div>
+    <div class="clockprog ${cls==='late'?'late':''}" role="progressbar" aria-label="time remaining"><div style="width:${pct}%"></div></div>
+    <div class="faint">Day limit: ${clock.durationMin||dayLimitMin||'—'} min</div>`;
+}
+function renderClocks(){
+  if(!BOOT) return;
+  const day = BOOT.days[(BOOT.activeDay||1)-1] || {};
+  const c = BOOT.clock || {status:'idle'};
+  for(const id of ['clockbarBoard','clockbarStudent','clockbarRun','clockbarTracker','clockbarGrading']){
+    const el=$(id); if(el) el.innerHTML = clockHTML(c, day.timeLimitMin);
+  }
+  const hc = $('headClock');
+  hc.className = 'headclock ' + (c.status==='running' ? ((c.endsAt && Date.now()>=c.endsAt)?'late':'running') : c.status==='closed' ? 'closed':'');
+  let txt = 'Day ' + (BOOT.activeDay||1) + ' · ';
+  if(c.status==='running' && c.endsAt){ const left=c.endsAt-Date.now(); txt += left>0 ? fmtMS(left) : 'late +'+fmtMS(-left); }
+  else if(c.status==='closed') txt += 'closed'; else txt += 'clock idle';
+  $('headClockText').textContent = txt;
+}
+function startClockTicker(){ if(clockTimer) clearInterval(clockTimer); clockTimer = setInterval(()=>{ renderClocks(); tickElapsed(); }, 1000); }
+
+/* ---------- board ---------- */
+function badgeHTML(b, pop){
+  const ic = BADGE_ICON[b.type] || 'medal';
+  return `<div class="badge ${b.scope==='week'?'week':''} ${pop?'pop':''}">
+    <div class="ico">${icon(ic)}</div>
+    <div>
+      <div class="lbl2">${b.label}${b.detail?` <span class="sub">${esc(b.detail)}</span>`:''}</div>
+      <div class="who">${esc(b.display)}</div>
+      ${b.day?`<div class="sub">Day ${b.day}</div>`:(b.scope==='week'?`<div class="sub">this week</div>`:'')}
+    </div>
+  </div>`;
+}
+function renderBoard(){
+  if(!BOOT) return;
+  const days = BOOT.days;
+  $('lbActiveDay').textContent = 'Day ' + BOOT.activeDay + ' — ' + (days[BOOT.activeDay-1]?.title||'');
+  const mode = BOOT.boardMode || 'growth';
+  $('lbMode').textContent = mode==='growth'?'Growth Mode':mode==='podium'?'Podium Mode':'Full Mode';
+  $('lbModeDesc').textContent = (BOOT.rules.boardModes && BOOT.rules.boardModes[mode]) || '';
+  const configured = Object.values(BOOT.providers||{}).filter(p=>p.configured).length;
+  $('lbMeta').textContent = BOOT.roster.length + ' students · grader: ' + BOOT.brain + (configured?' ('+configured+' brain'+(configured>1?'s':'')+' ready)':' — no brain key set');
+  const side = $('sideWeekInfo');
+  if(side) side.innerHTML = `Day ${BOOT.activeDay} of ${days.length} · ${mode} mode · ${configured} brain${configured===1?'':'s'} ready`;
+
+  const spot = BOOT.spotlights || {perDay:{}, weekly:[]};
+  let wall = '';
+  if(spot.weekly && spot.weekly.length) wall += `<h3>${icon('sparkles')} This week's champions by category</h3><div class="spotgrid">${spot.weekly.map(b=>badgeHTML(b)).join('')}</div>`;
+  const dayKeys = Object.keys(spot.perDay||{}).sort((a,b)=>b-a);
+  if(dayKeys.length){
+    wall += `<h3 style="margin-top:var(--s5);">${icon('medal')} Day spotlights</h3>`;
+    for(const d of dayKeys){
+      const list = spot.perDay[d]; if(!list.length) continue;
+      const title = days[d-1] ? `Day ${d} — ${days[d-1].title}` : `Day ${d}`;
+      wall += `<p class="faint" style="margin-top:var(--s3);font-weight:700;">${title}</p><div class="spotgrid">${list.map(b=>badgeHTML(b)).join('')}</div>`;
+    }
+  }
+  if(!wall) wall = `<div class="empty"><div class="big">${icon('sparkles')}</div>No grades yet — the Spotlight Wall lights up after the first grading run.<br>Everyone has a badge to play for.</div>`;
+  $('spotlightWall').innerHTML = wall;
+
+  const board = BOOT.board || [];
+  let html = '';
+  if(mode === 'growth'){
+    html = board.length
+      ? `<div class="spotgrid">${board.map(r=>`<div class="badge"><div class="ico">${icon('user')}</div><div><div class="lbl2">${esc(r.display)}</div><div class="sub">in the arena</div></div></div>`).join('')}</div>
+         <p class="faint" style="margin-top:var(--s3);">Scores are private — check <b>Today</b> for yours, your personal best, and your badges. The instructor holds the full standings.</p>`
+      : `<div class="empty"><div class="big">${icon('users')}</div>No students yet — the instructor adds the roster in the Console.</div>`;
+  } else {
+    let head = '<th>#</th><th>Student</th>';
+    days.forEach(d=>{ head += `<th title="${d.title}">D${d.day}</th>`; });
+    head += '<th>Overall</th>';
+    const rows = board.map(r=>{
+      if(r.participant) return `<tr><td></td><td><b>${esc(r.display)}</b> <span class="faint">— participant</span></td>${days.map(()=>'<td class="daycell empty">·</td>').join('')}<td class="daycell empty">·</td></tr>`;
+      const circ = `<span class="rankcirc r${r.rank}">${r.rank}</span>`;
+      let cells='';
+      days.forEach(d=>{ const s=r.days && r.days[d.day]; cells += s ? `<td class="daycell">${s.total}</td>` : `<td class="daycell empty">·</td>`; });
+      return `<tr><td>${circ}</td><td><b>${esc(r.display)}</b></td>${cells}<td class="daycell"><b style="color:var(--gold-strong)">${r.overall}</b></td></tr>`;
+    });
+    html = `<table class="lb"><thead><tr>${head}</tr></thead><tbody>${rows.join('')||`<tr><td colspan="${days.length+3}" class="muted">No students yet.</td></tr>`}</tbody></table>`;
+    if(mode==='podium') html += `<p class="faint" style="margin-top:var(--s3);">Everyone below the podium is a finisher — check the Spotlight Wall above for badges, and Today for your own scores.</p>`;
+  }
+  $('boardTableWrap').innerHTML = html;
+  $('lbNote').textContent = 'Each day is out of 60 (six categories × 10). ' + (BOOT.rules.tieBreak||'');
+}
+
+/* ---------- missions ---------- */
+function renderBriefStrip(containerId, current, onClick, statuses){
+  const el = $(containerId);
+  el.innerHTML = BOOT.days.map(d=>{
+    const st = statuses && statuses[d.day];
+    const stat = st==='graded' ? `<span class="stat graded" title="graded">${icon('filecheck')}</span>` : st==='submitted' ? `<span class="stat" title="submitted">${icon('send')}</span>` : '';
+    return `<div class="d ${d.day===current?'active':''}" data-day="${d.day}" role="button" tabindex="0">
+      ${stat}<div class="wd">${d.weekday} · Day ${d.day}</div><div class="t">${d.title}</div><div class="tm">${icon('clock')} ${d.timeLimitMin} min</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.d').forEach(n=>{
+    const go = ()=>onClick(parseInt(n.dataset.day,10));
+    n.addEventListener('click', go);
+    n.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); }});
+  });
+}
+function briefHTML(d){
+  const words = (d.simpleWords||[]).length
+    ? `<div class="wordbox"><span class="lbl" style="color:var(--blue);">In simple words</span>${d.simpleWords.map(w=>`<div class="w"><b>${esc(w.term)}</b> — <span class="m">${esc(w.meaning)}</span></div>`).join('')}</div>` : '';
+  const steps = (d.steps||[]).length
+    ? `<h3 style="margin-top:var(--s5);">${icon('scroll')} Do it in this order</h3><ol class="steps">${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>` : '';
+  const helps = (d.ifStuck||d.ifEarly)
+    ? `<div class="row" style="margin-top:var(--s4);">
+         ${d.ifStuck?`<div class="grow"><div class="alert ok" style="margin:0;"><b>If you get stuck:</b> ${esc(d.ifStuck)}</div></div>`:''}
+         ${d.ifEarly?`<div class="grow"><div class="alert warn" style="margin:0;"><b>Finished early?</b> ${esc(d.ifEarly)}</div></div>`:''}
+       </div>` : '';
+  return `
+    <span class="pill blue">${d.weekday} · Day ${d.day}</span>
+    <span class="pill gold">⏱ ${d.timeLimitMin} minutes</span>
+    <span class="pill purple">${d.skills}</span>
+    <h2 style="margin-top:var(--s3);">${d.title}</h2>
+    <p class="muted">${d.tagline}</p>
+    <div class="missionhero">${esc(d.mission).replace(/\{business\}/g,'<b>your assigned business</b>')}</div>
+    ${words}${steps}
+    <div class="row" style="margin-top:var(--s4);">
+      <div class="grow">
+        <h3>${icon('check')} Done when</h3>
+        <ul class="check">${(d.doneWhen||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+        <h3 style="margin-top:var(--s4);">${icon('upload')} Submit</h3>
+        <ul class="check">${(d.deliverables||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      </div>
+      <div class="grow">
+        <h3>${icon('alert')} Caveats — hard constraints</h3>
+        <ul class="check caveats">${(d.caveats||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+        <div class="alert warn" style="margin-top:var(--s3);">${esc(d.evidenceNote||'Paste your evidence.')}</div>
+      </div>
+    </div>
+    ${helps}`;
+}
+function renderBriefs(){
+  renderBriefStrip('briefDayStrip', briefDay, (d)=>{ briefDay=d; renderBriefs(); });
+  $('briefDetail').innerHTML = `<div class="card brief">${briefHTML(BOOT.days[briefDay-1])}</div>`;
+}
+
+/* ---------- rules ---------- */
+function renderRules(){
+  $('rulesCats').innerHTML = Object.entries(BOOT.rules.categories||{}).map(([k,v])=>`
+    <div class="cat"><b>${CAT_LABEL[k]||k}</b><br><span class="muted">${esc(v)}</span></div>`).join('');
+  $('rulesLate').textContent = BOOT.rules.latePolicy || '';
+  $('rulesBadges').textContent = BOOT.rules.badges || '';
+}
+
+/* ---------- account: change your own password ---------- */
+function renderAccount(){
+  $('accUsername').textContent = (SESSION && SESSION.username) || (SESSION && SESSION.name) || 'you';
+  $('accCurrent').value = ''; $('accNext').value = ''; $('accNext2').value = '';
+  $('accAlerts').innerHTML = '';
+}
+async function doChangePassword(){
+  const username = SESSION && SESSION.username;
+  const current = $('accCurrent').value;
+  const next = $('accNext').value;
+  const next2 = $('accNext2').value;
+  const out = $('accAlerts');
+  out.innerHTML = '';
+  if(!current){ out.innerHTML = '<div class="alert err">Enter your current password.</div>'; return; }
+  if(next.length < 4 || next.length > 40){ out.innerHTML = '<div class="alert err">New password must be 4–40 characters.</div>'; return; }
+  if(next !== next2){ out.innerHTML = '<div class="alert err">The two new passwords do not match.</div>'; return; }
+  if(next === current){ out.innerHTML = '<div class="alert err">New password is the same as the current one — pick a different one.</div>'; return; }
+  const btn = $('accSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+  try{
+    await api('/api/change-password', {username, current, next});
+    out.innerHTML = '<div class="alert ok">Password changed. Use the new one the next time you sign in.</div>';
+    renderAccount();
+    toast('Password changed — keep it somewhere safe!', 'ok');
+  }catch(e){
+    const m = String(e.message||'');
+    out.innerHTML = `<div class="alert err">${m.includes('BAD_CREDENTIALS') ? 'Wrong current password.' : esc(m)}</div>`;
+  }finally{
+    btn.disabled = false; btn.innerHTML = icon('lock') + ' Save new password';
+  }
+}
+
+/* ---------- drafts ---------- */
+function draftKey(day){ return 'arena-draft-' + (ME||'?') + '-' + day; }
+function saveDraft(){
+  if(!ME) return;
+  try{ localStorage.setItem(draftKey(studentDay), JSON.stringify({text:$('subText').value, links:$('subLinks').value, at:Date.now()})); $('draftNote').textContent='Draft saved on this device'; }catch(_){}
+}
+function loadDraft(){
+  try{
+    const raw = localStorage.getItem(draftKey(studentDay));
+    if(!raw){ $('draftNote').textContent=''; return; }
+    const d = JSON.parse(raw);
+    if(!$('subText').value && d.text){
+      $('subText').value = d.text; $('subLinks').value = d.links || '';
+      $('draftNote').textContent = 'Draft restored from ' + new Date(d.at).toLocaleTimeString();
+    }
+  }catch(_){}
+  updateCharCount();
+}
+function clearDraft(){ try{ localStorage.removeItem(draftKey(studentDay)); }catch(_){} $('draftNote').textContent=''; }
+function updateCharCount(){ $('charCount').textContent = ($('subText').value||'').length.toLocaleString() + ' characters'; }
+
+/* ---------- my space ---------- */
+let ME = null;
+async function openDashboard(name, view){
+  ME = name;
+  try{
+    const me = await api('/api/me?name='+encodeURIComponent(name));
+    window.ME_DATA = me;
+    studentDay = me.activeDay || 1;
+    $('codenameInput').value = me.codename || '';
+    showView(view||'myspace');
+    renderStudent();
+  }catch(e){ toast(e.message,'err'); }
+}
+async function refreshMe(){
+  if(!ME || DEMO) return;
+  try{ window.ME_DATA = await api('/api/me?name='+encodeURIComponent(ME)); renderStudent(); }catch(_){}
+}
+function renderStudent(){
+  const me = window.ME_DATA; if(!me) return;
+  const statuses = {};
+  for(let d=1; d<=BOOT.days.length; d++){
+    const info = me.days[d];
+    if(info && info.grade) statuses[d]='graded';
+    else if(info && info.attempts && info.attempts.length) statuses[d]='submitted';
+  }
+  renderBriefStrip('studentDayStrip', studentDay, (d)=>{
+    saveDraft(); studentDay=d;
+    $('subText').value=''; $('subLinks').value='';
+    pendingFiles=[]; renderFileChips();
+    renderStudent();
+  }, statuses);
+  const d = BOOT.days[studentDay-1];
+  const info = me.days[studentDay] || {};
+  $('studentMission').innerHTML = briefHTML(d).replace('your assigned business', `<b style="color:var(--gold-strong)">${esc(info.business||'your assigned business')}</b>`);
+  $('businessOut').innerHTML = `Day ${d.day} · <b style="color:var(--text)">${esc(info.business||'—')}</b>
+    ${studentDay!==BOOT.activeDay?'<br><span class="faint">Not the active day — submissions are closed for it.</span>':''}`;
+
+  // your own start time for the active day
+  if(studentDay===BOOT.activeDay && me.startedAt){
+    const over = me.startedAt && (Date.now()-me.startedAt) > d.timeLimitMin*60000;
+    $('myStartOut').innerHTML = `<div class="alert ${over?'warn':'ok'}" style="margin:0;">
+      ${icon('clock')} You started at <b>${fmtClockTime(me.startedAt)}</b> —
+      <b id="myStartElapsed">${fmtElapsed(Date.now()-me.startedAt)}</b> in. Day limit: ${d.timeLimitMin} min.</div>`;
+  } else {
+    $('myStartOut').innerHTML = '';
+  }
+
+  renderProgress(me.progress);
+  loadDraft();
+
+  const attempts = info.attempts||[];
+  let attemptNote = attempts.length
+    ? `<div class="alert ok">Submitted ${attempts.length} time${attempts.length>1?'s':''} — last at ${new Date(attempts[attempts.length-1].at).toLocaleTimeString()}. You can resubmit; the latest counts.</div>` : '';
+  let videoNote = '';
+  if(studentDay===5) videoNote = `<div class="alert info" style="margin-top:var(--s2);">Today includes a video. There is no video upload here — paste the storyboard, your clipped/advert script, every prompt you used, the exact duration, and a link or full path to the MP4. Attach a thumbnail so the Vision pass can see a frame.</div>`;
+  else if(studentDay===3) videoNote = `<div class="alert info" style="margin-top:var(--s2);">The advert is a video, so paste the storyboard, voice script and clip prompts, the exact duration, and where the MP4 is saved (link or path). Attach a thumbnail — the AI can't watch video, so it grades your pasted evidence and the instructor watches the clip.</div>`;
+  $('submitHint').innerHTML = attemptNote + videoNote + `The grading agent reads <b>what you paste</b>. Paste the finished work AND the prompt log. The clock decides your Time score.`;
+
+  const g = info.grade;
+  if(g){ $('myGradeCard').style.display='block'; $('myGradeOut').innerHTML = gradeHTML(g); maybeCountUp(g.total); }
+  else $('myGradeCard').style.display='none';
+  const sc = info.selfCheck;
+  if(sc){ $('selfCheckCard').style.display='block'; $('selfCheckOut').innerHTML = coachHTML(sc.result); }
+  else $('selfCheckCard').style.display='none';
+
+  if(me.progress && me.progress.days.length){
+    const last = me.progress.days[me.progress.days.length-1];
+    if(last.isPersonalBest && me.progress.days.length>1 && !pbCelebrated[last.day]){
+      pbCelebrated[last.day]=true; confetti();
+      toast('New personal best — ' + last.total + '/60!', 'ok');
+    }
+  }
+  const allowed = studentDay===BOOT.activeDay && BOOT.clock && BOOT.clock.status==='running';
+  $('submitBtn').disabled = !allowed;
+  $('selfCheckBtn').disabled = !allowed;
+  $('submitHint').innerHTML += allowed ? '' : `<div class="alert warn" style="margin-top:var(--s3);">Submissions are ${BOOT.clock?.status==='closed'?'closed':'not open yet'} for this day.</div>`;
+  if(SESSION && SESSION.role==='student') $('sideName').textContent = BOOT.codenames[ME]||ME;
+}
+function maybeCountUp(total){
+  if(lastAnimatedTotal === total || REDUCED){ lastAnimatedTotal = total; return; }
+  lastAnimatedTotal = total;
+  const el = document.querySelector('#myGradeOut .totalchip .v');
+  if(!el) return;
+  const t0 = performance.now(), dur = 700;
+  (function step(t){
+    const p = Math.min(1,(t-t0)/dur);
+    el.textContent = Math.round(total * (1-Math.pow(1-p,3)));
+    if(p<1) requestAnimationFrame(step);
+  })(t0);
+}
+function renderProgress(prog){
+  const el = $('progressOut');
+  if(!prog || !prog.days.length){
+    el.innerHTML = `<div class="empty" style="padding:var(--s4);"><div class="big">${icon('trend')}</div>No official grades yet — your journey starts after the first grading run.<br>This card tracks <b>your</b> totals, personal best and badges.</div>`;
+    return;
+  }
+  let html = `<div class="progrow">`;
+  for(const p of prog.days){
+    const delta = p.delta==null ? '' : p.delta>0 ? `<span class="up">▲ +${p.delta}</span>` : p.delta<0 ? `<span class="down">▼ ${p.delta}</span>` : `<span class="flat">= same</span>`;
+    html += `<div class="progcard ${p.isPersonalBest?'pb':''}">
+      <div class="k">Day ${p.day} ${p.isPersonalBest?'· personal best':''}</div>
+      <div class="t">${p.total}<span class="faint" style="font-size:13px;"> / 60</span></div>
+      <div class="d">${delta}</div>
+    </div>`;
+  }
+  html += `</div>`;
+  if(prog.personalBest) html += `<p class="muted" style="margin-top:var(--s3);font-size:14px;"><b>Personal best:</b> ${prog.personalBest.total}/60 on Day ${prog.personalBest.day}. Beat that — you're playing against you.</p>`;
+  if(prog.badges && prog.badges.length){
+    html += `<h3 style="margin-top:var(--s5);">${icon('medal')} My badges</h3><div class="spotgrid">${prog.badges.map(b=>badgeHTML(b,true)).join('')}</div>`;
+  }
+  el.innerHTML = html;
+}
+function chipClass(v){ return v>=8?'hi':(v>=5?'mid':'lo'); }
+function scoreChips(scores, total){
+  let chips = CATS.map(k=>`<div class="scorechip ${chipClass(scores[k])}"><div class="v">${scores[k]}</div><div class="k">${CAT_LABEL[k]}</div></div>`).join('');
+  if(total!=null) chips += `<div class="scorechip totalchip"><div class="v">${total}</div><div class="k">/ 60</div></div>`;
+  return `<div class="scores">${chips}</div>`;
+}
+function gradeHTML(g){
+  return `
+    <p class="faint" style="margin-bottom:var(--s3);">
+      Business: <b>${esc(g.business)}</b> · graded ${g.source==='manual'?'by the instructor':'by the AI agent ('+esc((g.provider||'ai')+' · '+(g.model||''))+')'}
+      ${g.minutesLate>0?` · <span style="color:var(--red)">${g.minutesLate} min late</span>`:' · on time'}
+    </p>
+    ${scoreChips(g.scores, g.total)}
+    ${g.violations && g.violations.length?`<div class="alert err" style="margin-top:var(--s3);"><b>Caveat violations:</b><ul style="margin:6px 0 0 18px;">${g.violations.map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
+    ${g.strengths && g.strengths.length?`<p style="margin-top:var(--s3);"><b style="color:var(--green)">Strengths:</b> ${g.strengths.map(esc).join(' · ')}</p>`:''}
+    ${g.fixes && g.fixes.length?`<p style="margin-top:var(--s2);"><b style="color:var(--gold-strong)">Fixes:</b> ${g.fixes.map(esc).join(' · ')}</p>`:''}
+    ${g.summary?`<p class="muted" style="margin-top:var(--s3);">${esc(g.summary)}</p>`:''}
+    ${g.imageAnalysis?`<details style="margin-top:var(--s3);border:1px dashed var(--line);border-radius:8px;padding:var(--s2) var(--s3);">
+      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--dim);">${icon('mirror')} What the vision model saw in your images</summary>
+      <p class="muted" style="margin-top:var(--s2);white-space:pre-line;font-size:13px;">${esc(g.imageAnalysis)}</p>
+      <p class="faint" style="margin-top:var(--s2);font-size:12px;">Extra evidence only — your pasted work counts most, and the instructor has final say.</p>
+    </details>`:''}`;
+}
+function coachHTML(r){
+  return `${scoreChips(r.estimated, null)}
+    <p class="faint" style="margin-top:var(--s2);">Estimates only — the official grade comes from the instructor's run${r.brain?' · coach brain: '+esc(r.brain):''}.</p>
+    ${r.topFixes && r.topFixes.length?`<p style="margin-top:var(--s3);"><b style="color:var(--gold-strong)">Top fixes:</b></p><ul style="margin:6px 0 0 18px;">${r.topFixes.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
+    ${r.pepLine?`<p class="muted" style="margin-top:var(--s3);">${esc(r.pepLine)}</p>`:''}`;
+}
+
+/* ---------- files ---------- */
+function renderFileChips(){
+  $('fileChips').innerHTML = pendingFiles.map((f,i)=>
+    `<span class="filechip">${icon('upload')} ${esc(f.name)} <span class="faint">(${(f.size/1024).toFixed(0)} KB)</span>
+     <button type="button" data-i="${i}" aria-label="remove ${esc(f.name)}">${icon('x')}</button></span>`).join('');
+  $('fileChips').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    pendingFiles.splice(parseInt(b.dataset.i,10),1); renderFileChips();
+  }));
+}
+function addFiles(list){
+  for(const f of list){
+    if(pendingFiles.length>=4){ toast('Max 4 images — '+f.name+' skipped','warn'); break; }
+    if(f.size > 3*1024*1024){ toast(f.name+' is over 3 MB — skipped','warn'); continue; }
+    if(!f.type.startsWith('image/')){ toast(f.name+' is not an image — skipped','warn'); continue; }
+    pendingFiles.push(f);
+  }
+  renderFileChips();
+}
+
+/* ---------- submit & self-check ---------- */
+function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+async function doSubmit(){
+  const images = [];
+  for(const f of pendingFiles) images.push({name:f.name, type:f.type, data: await readFileAsDataURL(f)});
+  const links = $('subLinks').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  setBusy('submitBtn', true);
+  try{
+    const r = await api('/api/submit', {name:ME, day:studentDay, text:$('subText').value, links, images});
+    $('submitAlerts').innerHTML = `<div class="alert ok">Submitted (attempt #${r.attempt})${r.minutesLate>0?` — <b>${r.minutesLate} min late</b>`:' — on time'}. You can resubmit before the day closes; the latest counts.</div>`;
+    toast(r.minutesLate>0 ? 'Submitted — '+r.minutesLate+' min late (still counts!)' : 'Submitted — on time. Well done!', r.minutesLate>0?'warn':'ok');
+    pendingFiles=[]; renderFileChips(); $('subFiles').value='';
+    clearDraft();
+    await refreshMe();
+  }catch(e){
+    $('submitAlerts').innerHTML = `<div class="alert err">${esc(e.message)}</div>`;
+    toast(e.message,'err');
+  }
+  setBusy('submitBtn', false);
+}
+async function doSelfCheck(){
+  setBusy('selfCheckBtn', true);
+  $('submitAlerts').innerHTML = `<div class="alert warn"><span class="spinner"></span>The coach is reading your draft…</div>`;
+  try{
+    const r = await api('/api/selfcheck', {name:ME, day:studentDay});
+    $('submitAlerts').innerHTML='';
+    if(window.ME_DATA.days[studentDay]) window.ME_DATA.days[studentDay].selfCheck = {result:r.result};
+    renderStudent();
+    toast('Practice check ready — it never counts.','ok');
+  }catch(e){
+    $('submitAlerts').innerHTML = `<div class="alert err">${esc(e.message)}</div>`;
+    toast(e.message,'err');
+  }
+  setBusy('selfCheckBtn', false);
+}
+function setBusy(id, busy){
+  const b=$(id); b.disabled=busy;
+  if(busy){ b.dataset.label=b.innerHTML; b.innerHTML='<span class="spinner"></span>Working…'; }
+  else if(b.dataset.label) b.innerHTML=b.dataset.label;
+  if(!busy && (id==='submitBtn'||id==='selfCheckBtn')) renderStudent();
+}
+
+/* ---------- console ---------- */
+function renderAdmin(){
+  if(!PIN) return;
+  $('adminDaySelect').innerHTML = BOOT.days.map(d=>`<option value="${d.day}" ${d.day===BOOT.activeDay?'selected':''}>Day ${d.day} — ${d.title} (${d.timeLimitMin} min)</option>`).join('');
+  $('adminDuration').value = BOOT.days[BOOT.activeDay-1].timeLimitMin;
+  $('gradeDayLabel').textContent = BOOT.activeDay;
+  $('detailDayLabel').textContent = BOOT.activeDay;
+  $('visionToggle').checked = BOOT.vision !== false;
+  $('visionToggle').closest('.radiochoice').classList.toggle('on', $('visionToggle').checked);
+
+  const brains = [['auto','Auto — failover across configured brains']];
+  for(const [id,p] of Object.entries(BOOT.providers||{})) brains.push([id, `${p.label} · ${p.model}`]);
+  $('brainChoices').innerHTML = brains.map(([id,label])=>{
+    const p = BOOT.providers[id];
+    const status = id==='auto' ? '' : `<span class="brainstatus ${p&&p.configured?'on':'off'}">${p&&p.configured?'key ready':'no key'}</span>`;
+    return `<label class="radiochoice ${BOOT.brain===id?'on':''}">
+      <input type="radio" name="brain" value="${id}" ${BOOT.brain===id?'checked':''}>
+      <span><b>${id}</b> — ${esc(label)}${status}</span>
+    </label>`;
+  }).join('');
+  $('brainChoices').querySelectorAll('input').forEach(r=>r.addEventListener('change', async ()=>{
+    try{ lastAdmin = await adminAction({action:'setBrain', brain:r.value}); toast('Grading brain set to '+r.value+'.','ok'); renderAdmin(); }catch(e){ toast(e.message,'err'); }
+  }));
+
+  const modes = [['growth','Growth — badges + private scores (kind default)'],['podium','Podium — top 3 only'],['full','Full — classic ranks and scores']];
+  $('modeChoices').innerHTML = modes.map(([m,label])=>`
+    <label class="radiochoice ${BOOT.boardMode===m?'on':''}">
+      <input type="radio" name="mode" value="${m}" ${BOOT.boardMode===m?'checked':''}>
+      <span><b>${label}</b><br><span class="faint">${esc((BOOT.rules.boardModes||{})[m]||'')}</span></span>
+    </label>`).join('');
+  $('modeChoices').querySelectorAll('input').forEach(r=>r.addEventListener('change', async ()=>{
+    try{ lastAdmin = await adminAction({action:'setBoardMode', mode:r.value}); toast('Board mode set to '+r.value+'.','ok'); renderAdmin(); }catch(e){ toast(e.message,'err'); }
+  }));
+
+  $('rosterList').innerHTML = BOOT.roster.length
+    ? BOOT.roster.map(n=>`<div class="studentrow">
+        <span><b>${esc(n)}</b></span>
+        <input class="cn" data-n="${esc(n)}" placeholder="arena name…" value="${esc(BOOT.codenames && BOOT.codenames[n] || '')}" aria-label="arena name for ${esc(n)}">
+        <button class="x" data-n="${esc(n)}" title="remove ${esc(n)}" aria-label="remove ${esc(n)}">${icon('x')}</button>
+      </div>`).join('')
+    : `<div class="empty" style="padding:var(--s4);"><div class="big">${icon('users')}</div>Roster is empty — add your students above.</div>`;
+  $('rosterList').querySelectorAll('.cn').forEach(inp=>inp.addEventListener('change', async ()=>{
+    try{ lastAdmin = await adminAction({action:'setCodename', name:inp.dataset.n, codename:inp.value}); toast('Arena name saved.','ok'); }
+    catch(e){ toast(e.message,'err'); }
+  }));
+  $('rosterList').querySelectorAll('.x').forEach(b=>b.addEventListener('click', async ()=>{
+    if(!confirm('Remove '+b.dataset.n+'?')) return;
+    try{ lastAdmin = await adminAction({action:'removeStudent', name:b.dataset.n}); }catch(e){ toast(e.message,'err'); }
+  }));
+
+  $('overrideStudent').innerHTML = BOOT.roster.map(n=>`<option>${esc(n)}</option>`).join('') || '<option>—</option>';
+  renderOverrideInputs();
+  renderAdminTables();
+  renderAccounts();
+  renderStartTracker();
+}
+
+/* ---------- accounts & start tracker ---------- */
+function renderAccounts(){
+  const users = (lastAdmin && lastAdmin.users) || [];
+  const students = users.filter(u=>u.role==='student');
+  $('accountsTable').innerHTML = students.length
+    ? `<table class="lb"><tbody>
+        <tr><th>Student</th><th>Username</th><th>Password</th><th></th></tr>` +
+      students.map(u=>`<tr>
+        <td><b>${esc(u.name)}</b></td>
+        <td><span class="pw">${esc(u.username)}</span></td>
+        <td><span class="pw" id="pw_${esc(u.name)}" data-hidden="${esc(u.password)}">••••••••</span></td>
+        <td style="white-space:nowrap;">
+          <button class="btn small ghost pwshow" data-n="${esc(u.name)}" title="show password" aria-label="show password for ${esc(u.name)}">${icon('user')}</button>
+          <button class="btn small ghost pwreset" data-n="${esc(u.name)}" title="reset password" aria-label="reset password for ${esc(u.name)}">${icon('refresh')}</button>
+        </td>
+      </tr>`).join('') + '</tbody></table>'
+    : `<div class="empty" style="padding:var(--s4);"><div class="big">${icon('users')}</div>No student accounts yet.</div>`;
+  $('accountsTable').querySelectorAll('.pwshow').forEach(b=>b.addEventListener('click', ()=>{
+    const el = $('pw_'+b.dataset.n);
+    const shown = el.textContent !== '••••••••';
+    el.textContent = shown ? '••••••••' : el.dataset.hidden;
+  }));
+  $('accountsTable').querySelectorAll('.pwreset').forEach(b=>b.addEventListener('click', async ()=>{
+    if(!confirm('Give '+b.dataset.n+' a brand-new password?')) return;
+    try{
+      lastAdmin = await adminAction({action:'resetPassword', name:b.dataset.n});
+      toast('New password for '+b.dataset.n+': '+lastAdmin.newPassword, 'ok', 8000);
+      renderAccounts();
+    }catch(e){ toast(e.message,'err'); }
+  }));
+}
+function fmtClockTime(ts){ return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
+function fmtElapsed(ms){
+  if(ms==null) return '—';
+  const s = Math.max(0, Math.floor(ms/1000));
+  const m = Math.floor(s/60), h = Math.floor(m/60);
+  if(h) return h+'h '+(m%60)+'m '+(s%60)+'s';
+  if(m) return m+'m '+(s%60)+'s';
+  return s+'s';
+}
+function renderStartTracker(){
+  const starts = (lastAdmin && lastAdmin.starts) || {};
+  const attempts = (lastAdmin && lastAdmin.attemptsToday) || {};
+  $('startTrackerDay').textContent = BOOT.activeDay;
+  const day = BOOT.days[BOOT.activeDay-1];
+  const tbody = $('startTrackerTable').querySelector('tbody');
+  if(!BOOT.roster.length){ tbody.innerHTML = '<tr><td class="muted">No students on the roster yet.</td></tr>'; return; }
+  let head = `<tr><th>Student</th><th>Started</th><th>Time in</th><th>Day limit</th><th>Status</th></tr>`;
+  tbody.innerHTML = head + BOOT.roster.map(n=>{
+    const st = starts[n];
+    const sub = attempts[n] ? 'submitted' : 'not submitted';
+    const status = st ? sub : 'not started yet';
+    const over = st && day && (Date.now()-st) > day.timeLimitMin*60000;
+    return `<tr class="startrow">
+      <td><b>${esc(n)}</b></td>
+      <td>${st?fmtClockTime(st):'<span class="faint">—</span>'}</td>
+      <td class="elapsed" data-from="${st||''}" style="font-weight:700;color:${over?'var(--red)':'var(--gold-strong)'}">${st?fmtElapsed(Date.now()-st):'<span class="faint">—</span>'}</td>
+      <td class="faint">${day?day.timeLimitMin+' min':'—'}</td>
+      <td>${status==='submitted'?'<span class="alert ok" style="margin:0;padding:2px 10px;">'+status+'</span>':'<span class="faint">'+status+'</span>'}${over?' <span class="alert warn" style="margin:0;padding:2px 10px;">over limit</span>':''}</td>
+    </tr>`;
+  }).join('');
+}
+function tickElapsed(){
+  document.querySelectorAll('.elapsed[data-from]').forEach(el=>{
+    const from = el.dataset.from;
+    if(!from) return;
+    el.textContent = fmtElapsed(Date.now()-parseInt(from,10));
+  });
+  if(ME && window.ME_DATA && window.ME_DATA.startedAt && $('myStartElapsed')){
+    $('myStartElapsed').textContent = fmtElapsed(Date.now()-window.ME_DATA.startedAt);
+  }
+}
+function renderOverrideInputs(){
+  $('overrideScores').innerHTML = CATS.map(k=>`<div class="field"><label for="ov_${k}">${CAT_LABEL[k]}</label><input type="number" min="0" max="10" id="ov_${k}" placeholder="0–10"></div>`).join('');
+}
+function renderAdminTables(){
+  const full = (lastAdmin && lastAdmin.leaderboard) || null;
+  const tbody = $('adminFullTable').querySelector('tbody');
+  if(!full){ tbody.innerHTML = '<tr><td class="muted">Run any console action to load the full standings.</td></tr>'; return; }
+  let head = '<tr><th>#</th><th>Student</th><th>Nickname</th>';
+  BOOT.days.forEach(d=>{ head += `<th>D${d.day}</th>`; });
+  head += '<th>Overall</th></tr>';
+  tbody.innerHTML = head + (full.map(r=>{
+    let cells='';
+    BOOT.days.forEach(d=>{ const s=r.days && r.days[d.day]; cells += s ? `<td class="daycell">${s.total}</td>` : `<td class="daycell empty">·</td>`; });
+    return `<tr><td><span class="rankcirc r${Math.min(r.rank,4)}">${r.rank}</span></td><td><b>${esc(r.name)}</b></td><td class="faint">${esc(BOOT.codenames&&BOOT.codenames[r.name]||'')}</td>${cells}<td class="daycell"><b style="color:var(--gold-strong)">${r.overall}</b></td></tr>`;
+  }).join('') || `<tr><td colspan="${BOOT.days.length+4}" class="muted">No students yet.</td></tr>`);
+  const rows = [];
+  for(const r of full){
+    const s = r.days && r.days[BOOT.activeDay];
+    if(!s) continue;
+    rows.push(`<tr><td><b>${esc(r.name)}</b></td><td>G ${s.goal} · C ${s.craft} · Cr ${s.creativity} · T ${s.technical} · P ${s.process} · Tm ${s.time}</td><td><b style="color:var(--gold-strong)">${s.total}</b></td></tr>`);
+  }
+  $('detailTable').querySelector('tbody').innerHTML =
+    '<tr><th>Student</th><th>Category scores — active day</th><th>Total</th></tr>' +
+    (rows.join('') || '<tr><td colspan="3" class="muted">No grades yet on this day.</td></tr>');
+}
+async function adminAction(body){
+  const r = await api('/api/admin', {...body, pin:PIN});
+  BOOT.activeDay = r.activeDay; BOOT.clock = r.clock; BOOT.roster = r.roster;
+  BOOT.boardMode = r.boardMode; BOOT.brain = r.brain; BOOT.spotlights = r.spotlights;
+  if(r.vision !== undefined) BOOT.vision = r.vision;
+  BOOT.board = undefined;
+  renderAll();
+  return r;
+}
+async function gradeAll(){
+  const day = BOOT.activeDay;
+  const vision = BOOT.vision !== false;
+  const t0 = Date.now();
+  let elapsedTimer = setInterval(()=>{
+    const s = Math.round((Date.now()-t0)/1000);
+    const el = $('gradeElapsed'); if(el) el.textContent = s+'s';
+  }, 1000);
+  $('gradeProgress').innerHTML = `<span class="spinner"></span>The ${esc(BOOT.brain)} brain is grading submissions one by one${vision?' (vision pass is reading any uploaded images)':''}. On the free tier this can take several minutes — keep this tab open. <span class="faint">Elapsed: <b id="gradeElapsed">0s</b></span>`;
+  try{
+    const r = await api('/api/grade', {pin:PIN, day});
+    clearInterval(elapsedTimer);
+    const ok = r.graded.length, bad = r.failed||[];
+    lastAdmin = r; BOOT.spotlights = r.spotlights;
+    renderAll(); renderAdminTables();
+    const vis = r.graded.filter(g=>g.imageAnalysis).length;
+    $('gradeProgress').innerHTML = `Graded ${ok} submission${ok===1?'':'s'}${ok?` — brain used: ${esc(r.graded[0].provider||'ai')} (${esc(r.graded[0].model||'')})`:''}.` +
+      (vis?` <span class="faint">Vision pass read images for ${vis} of them${r.graded.find(g=>g.visionModel)?' via '+esc(r.graded.find(g=>g.visionModel).visionModel):''}.</span>`:'') +
+      (bad.length?` <span style="color:var(--red)">Failed: ${bad.map(f=>esc(f.student)+' ('+esc(f.error)+')').join('; ')}</span>`:'');
+    toast('Grading complete — '+ok+' graded.', ok?'ok':'warn');
+  }catch(e){
+    clearInterval(elapsedTimer);
+    $('gradeProgress').innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+    toast(e.message,'err');
+  }
+}
+async function exportCSV(type){
+  try{
+    const r = await api('/api/export', {pin:PIN, type});
+    const blob = new Blob([r.csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = r.filename; a.click();
+    toast('CSV downloaded.','ok');
+  }catch(e){ toast(e.message,'err'); }
+}
+
+/* ---------- render all ---------- */
+function renderAll(){
+  if(!BOOT) return;
+  renderClocks();
+  renderBoard();
+  renderBriefs();
+  renderRules();
+  if(ME && window.ME_DATA) renderStudent();
+  if(PIN) renderAdmin();
+  if(SESSION) renderAccount();
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- wire up ---------- */
+$('gateLoginBtn').addEventListener('click', doLogin);
+['gateUser','gatePass'].forEach(id=> $(id).addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); }));
+$('signOutBtn').addEventListener('click', signOut);
+$('accSaveBtn').addEventListener('click', doChangePassword);
+['accCurrent','accNext','accNext2'].forEach(id=> $(id).addEventListener('keydown', e=>{ if(e.key==='Enter') doChangePassword(); }));
+$('headClock').addEventListener('click', ()=>showView('board'));
+$('codenameBtn').addEventListener('click', async ()=>{
+  try{
+    const r = await api('/api/codename', {name:ME, codename:$('codenameInput').value});
+    window.ME_DATA.codename = r.codename;
+    $('codenameNote').textContent = r.codename ? 'The board shows "'+r.codename+'".' : 'The board shows your name.';
+    $('sideName').textContent = r.codename || ME;
+    toast(r.codename?'Nickname saved: '+r.codename:'Nickname cleared.','ok');
+    try{ BOOT = await api('/api/bootstrap'); renderBoard(); }catch(_){}
+  }catch(e){ $('codenameNote').textContent = e.message; toast(e.message,'err'); }
+});
+$('subText').addEventListener('input', ()=>{ updateCharCount(); clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 600); });
+$('subLinks').addEventListener('input', ()=>{ clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 600); });
+$('fileDrop').addEventListener('click', ()=>$('subFiles').click());
+$('fileDrop').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); $('subFiles').click(); }});
+$('subFiles').addEventListener('change', ()=>{ addFiles($('subFiles').files); $('subFiles').value=''; });
+['dragover','dragenter'].forEach(ev=>$('fileDrop').addEventListener(ev, e=>{ e.preventDefault(); $('fileDrop').classList.add('over'); }));
+['dragleave','drop'].forEach(ev=>$('fileDrop').addEventListener(ev, e=>{ e.preventDefault(); $('fileDrop').classList.remove('over'); }));
+$('fileDrop').addEventListener('drop', e=>addFiles(e.dataTransfer.files));
+$('submitBtn').addEventListener('click', doSubmit);
+$('selfCheckBtn').addEventListener('click', doSelfCheck);
+$('startClockBtn').addEventListener('click', async ()=>{
+  try{
+    lastAdmin = await adminAction({action:'setDay', day:parseInt($('adminDaySelect').value,10)});
+    lastAdmin = await adminAction({action:'startClock', durationMin:parseInt($('adminDuration').value,10)||undefined});
+    toast('Clock started. Students can now submit.','ok');
+  }catch(e){ toast(e.message,'err'); }
+});
+$('closeDayBtn').addEventListener('click', async ()=>{
+  try{ lastAdmin = await adminAction({action:'closeDay'}); toast('Day closed — submissions locked.','ok'); }catch(e){ toast(e.message,'err'); }
+});
+$('reopenBtn').addEventListener('click', async ()=>{
+  try{ lastAdmin = await adminAction({action:'reopenDay'}); toast('Reopened with a 10-minute late window.','ok'); }catch(e){ toast(e.message,'err'); }
+});
+$('addStudentBtn').addEventListener('click', async ()=>{
+  const n = $('newStudentName').value.trim(); if(!n) return;
+  try{
+    lastAdmin = await adminAction({action:'addStudent', name:n});
+    $('newStudentName').value='';
+    if(lastAdmin.createdUser){
+      toast(`Added ${n} — username: ${lastAdmin.createdUser.username} · password: ${lastAdmin.createdUser.password} (write it down!)`, 'ok', 12000);
+    } else toast('Added '+n+'.','ok');
+    renderAccounts(); renderStartTracker();
+  }
+  catch(e){ toast(e.message,'err'); }
+});
+$('newStudentName').addEventListener('keydown', e=>{ if(e.key==='Enter') $('addStudentBtn').click(); });
+$('gradeAllBtn').addEventListener('click', gradeAll);
+$('visionToggle').addEventListener('change', async (e)=>{
+  e.target.closest('.radiochoice').classList.toggle('on', e.target.checked);
+  try{
+    lastAdmin = await adminAction({action:'setVision', on: e.target.checked});
+    toast(e.target.checked ? 'Vision pass ON — the AI will read uploaded images before grading.' : 'Vision pass OFF — images are for your eyes only.', 'ok');
+  }catch(err){ toast(err.message,'err'); }
+});
+$('overrideBtn').addEventListener('click', async ()=>{
+  const scores = {};
+  for(const k of CATS){ const v=$('ov_'+k).value; if(v!=='') scores[k]=parseInt(v,10); }
+  if(!Object.keys(scores).length){ toast('Enter at least one score to override.','warn'); return; }
+  try{
+    lastAdmin = await api('/api/admin', {pin:PIN, action:'overrideGrade', day:BOOT.activeDay, name:$('overrideStudent').value, scores, notes:$('overrideNote').value});
+    BOOT = await api('/api/bootstrap');
+    renderAll(); renderAdminTables();
+    toast('Override saved.','ok');
+  }catch(e){ toast(e.message,'err'); }
+});
+$('exportStandings').addEventListener('click', ()=>exportCSV('standings'));
+$('exportDetailed').addEventListener('click', ()=>exportCSV('detailed'));
+$('resetBtn').addEventListener('click', async ()=>{
+  if(!confirm('Reset the ENTIRE week? Roster, submissions and grades will be wiped.')) return;
+  if(!confirm('Really sure? This cannot be undone.')) return;
+  try{ lastAdmin = await adminAction({action:'resetAll', confirm:'RESET'}); toast('Week reset.','ok'); }catch(e){ toast(e.message,'err'); }
+});
+
+boot();
+</script>
+</body>
+</html>

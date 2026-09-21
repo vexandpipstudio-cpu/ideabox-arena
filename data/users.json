@@ -1,0 +1,47 @@
+{
+  "_note": "Arena accounts. Usernames are case-insensitive. Edit passwords freely here, then restart. Students added from the Console are appended here automatically.",
+  "users": [
+    {
+      "role": "instructor",
+      "name": "Instructor",
+      "username": "instructor",
+      "password": "master-2026"
+    },
+    {
+      "role": "student",
+      "name": "Emmanuel",
+      "username": "emmanuel",
+      "password": "emm-482"
+    },
+    {
+      "role": "student",
+      "name": "Olamide",
+      "username": "olamide",
+      "password": "ola-197"
+    },
+    {
+      "role": "student",
+      "name": "Ini",
+      "username": "ini",
+      "password": "ini-635"
+    },
+    {
+      "role": "student",
+      "name": "Malik",
+      "username": "malik",
+      "password": "mal-274"
+    },
+    {
+      "role": "student",
+      "name": "Damilare",
+      "username": "damilare",
+      "password": "dam-851"
+    },
+    {
+      "role": "student",
+      "name": "Emmanuel-2",
+      "username": "emmanuel-2",
+      "password": "emm2-309"
+    }
+  ]
+}

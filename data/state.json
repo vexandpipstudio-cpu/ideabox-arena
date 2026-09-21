@@ -1,0 +1,26 @@
+{
+  "activeDay": 1,
+  "clock": {
+    "status": "idle",
+    "startedAt": null,
+    "durationMin": null,
+    "endsAt": null
+  },
+  "boardMode": "growth",
+  "graderBrain": "auto",
+  "vision": true,
+  "roster": [
+    "Emmanuel",
+    "Olamide",
+    "Ini",
+    "Malik",
+    "Damilare",
+    "Emmanuel-2"
+  ],
+  "codenames": {},
+  "starts": {},
+  "assignments": {},
+  "submissions": {},
+  "grades": {},
+  "selfChecks": {}
+}

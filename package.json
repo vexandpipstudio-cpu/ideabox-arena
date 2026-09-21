@@ -1,0 +1,12 @@
+{
+  "name": "ideabox-arena",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IdeaBox Arena — Month 3 Week 4 Practical Week (zero-dependency Node server + AI grading agent)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
