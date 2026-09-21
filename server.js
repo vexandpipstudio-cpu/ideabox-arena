@@ -172,6 +172,108 @@ function onlineNames() {
   return STATE.roster.filter((n) => ONLINE[n] && now - ONLINE[n] < ONLINE_TTL);
 }
 
+/* ---------------- WebSocket (zero-dependency) ---------------- */
+/* Clients connect at /ws; the server pushes events:
+     {t:'clock', clock}                  — clock changed (start/close/reset)
+     {t:'starts', starts, online}        — start stamps / presence changed
+     {t:'grade', day, student, grade}    — a grade landed
+     {t:'submit', day, student, n}       — someone submitted
+     {t:'hello', serverTime}             — on connect
+   The client still falls back to polling if the socket drops. */
+const WS = new Set();                 // active WebSocket sockets (server->client)
+const WS_ALIVE = new Map();           // socket -> last activity ms (for ping sweep)
+
+function wsBroadcast(obj) {
+  const msg = JSON.stringify(obj);
+  for (const sock of WS) {
+    try { sock.send(msg); } catch (_) { /* dead socket — sweep will drop it */ }
+  }
+}
+
+function wsHandleUpgrade(req, socket, head) {
+  if (!req.headers.upgrade || String(req.headers.upgrade).toLowerCase() !== 'websocket') return false;
+  const key = req.headers['sec-websocket-key'];
+  if (!key) { socket.destroy(); return true; }
+  const accept = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+  socket.write(
+    'HTTP/1.1 101 Switching Protocols\r\n' +
+    'Upgrade: websocket\r\n' +
+    'Connection: Upgrade\r\n' +
+    'Sec-WebSocket-Accept: ' + accept + '\r\n\r\n'
+  );
+  socket.setNoDelay(true);
+  const sock = { socket, alive: true, buf: null };
+  WS.add(sock); WS_ALIVE.set(sock, Date.now());
+  sock.send = (obj) => { try { socket.write(frameWS(typeof obj === 'string' ? obj : JSON.stringify(obj))); } catch (_) {} };
+  sock.send({ t: 'hello', serverTime: Date.now() });
+  socket.on('data', (chunk) => wsHandleFrame(sock, chunk));
+  socket.on('close', () => { WS.delete(sock); WS_ALIVE.delete(sock); });
+  socket.on('error', () => { WS.delete(sock); WS_ALIVE.delete(sock); });
+  return true;
+}
+
+function wsHandleFrame(sock, chunk) {
+  // Accumulate & parse client frames. We accept a tiny subset:
+  //  - FIN+text frames (opcode 1) — parse as JSON, treat as {t:'ping'} heartbeats
+  //  - masked frames are required from the client; unmask if present.
+  let data = sock.buf ? Buffer.concat([sock.buf, chunk]) : chunk;
+  sock.buf = null;
+  const parsed = [];
+  while (data.length >= 2) {
+    const b1 = data[0], b2 = data[1];
+    const fin = (b1 & 0x80) !== 0;
+    const opcode = b1 & 0x0f;
+    const masked = (b2 & 0x80) !== 0;
+    let len = b2 & 0x7f;
+    let off = 2;
+    if (len === 126) { if (data.length < 4) break; len = data.readUInt16BE(2); off = 4; }
+    else if (len === 127) { if (data.length < 10) break; len = Number(data.readBigUInt64BE(2)); off = 10; }
+    let mask;
+    if (masked) { if (data.length < off + 4) break; mask = data.slice(off, off + 4); off += 4; }
+    if (data.length < off + len) break;         // incomplete — wait for more
+    let payload = data.slice(off, off + len);
+    if (masked) for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i % 4];
+    data = data.slice(off + len);
+
+    if (opcode === 0x8) {
+      // close — reply close and drop
+      try { sock.socket.write(Buffer.from([0x88, 0x00])); sock.socket.end(); } catch (_) {}
+      return;
+    }
+    if (opcode === 0x9) { // ping -> pong
+      try { sock.socket.write(Buffer.concat([Buffer.from([0x8a, payload.length]), payload])); } catch (_) {}
+      payload = Buffer.alloc(0);
+      continue;
+    }
+    if (opcode === 0x1 && fin) { // text frame
+      WS_ALIVE.set(sock, Date.now());
+      try {
+        const obj = JSON.parse(payload.toString('utf8'));
+        if (obj && obj.t === 'ping') sock.send({ t: 'pong', serverTime: Date.now() });
+      } catch (_) { /* not JSON — ignore */ }
+    }
+  }
+  if (data.length) sock.buf = data;
+}
+
+function frameWS(str) {
+  const payload = Buffer.from(str, 'utf8');
+  const len = payload.length;
+  let head;
+  if (len < 126) head = Buffer.from([0x81, len]);
+  else if (len < 65536) { head = Buffer.alloc(4); head[0] = 0x81; head[1] = 126; head.writeUInt16BE(len, 2); }
+  else { head = Buffer.alloc(10); head[0] = 0x81; head[1] = 127; head.writeBigUInt64BE(BigInt(len), 2); }
+  return Buffer.concat([head, payload]);
+}
+
+// sweep dead sockets every 30s; ping idle sockets to keep NAT/proxies alive
+setInterval(() => {
+  const now = Date.now();
+  for (const [sock, last] of WS_ALIVE) {
+    if (now - last > 120000) { try { sock.socket.end(); } catch (_) {} WS.delete(sock); WS_ALIVE.delete(sock); }
+  }
+}, 30000).unref();
+
 /* ---------------- accounts (users.json) ---------------- */
 let USERS = { users: [] };
 function loadUsers() {
@@ -841,7 +943,10 @@ async function handleAPI(req, res, url) {
 
     if (route === '/api/heartbeat' && req.method === 'POST') {
       const name = String(body.name || '').trim();
+      const before = onlineNames().join(',');
       if (name && STATE.roster.includes(name)) ONLINE[name] = Date.now();
+      const after = onlineNames().join(',');
+      if (before !== after) wsBroadcast({ t: 'online', online: onlineNames(), serverTime: Date.now() });
       return send({ ok: true, online: onlineNames() });
     }
 
@@ -891,6 +996,7 @@ async function handleAPI(req, res, url) {
       STATE.submissions[day][name] = STATE.submissions[day][name] || [];
       STATE.submissions[day][name].push({ at, text, links, images });
       saveState();
+      wsBroadcast({ t: 'submit', day, student: name, n: STATE.submissions[day][name].length, serverTime: Date.now() });
       return send({ ok: true, attempt: STATE.submissions[day][name].length, minutesLate: minutesLate(day, at), images });
     }
 
@@ -918,6 +1024,7 @@ async function handleAPI(req, res, url) {
         if (ni > 0) await sleep(4000); // pace free-tier rate limits between students
         try { graded.push(await gradeSubmission(day, n, body.brain || null)); } catch (e) { failed.push({ student: n, error: e.message }); }
       }
+      wsBroadcast({ t: 'gradesDone', day, graded: graded.length, failed: failed.length, serverTime: Date.now() });
       return send({
         ok: true, graded, failed,
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
@@ -947,18 +1054,42 @@ async function handleAPI(req, res, url) {
         STATE.starts[day] = {};
         for (const n of loggedIn) STATE.starts[day][n] = now;
         saveState();
+        wsBroadcast({ t: 'clock', clock: clockInfo(), starts: STATE.starts[STATE.activeDay] || {}, online: onlineNames(), serverTime: Date.now() });
       } else if (a === 'closeDay') {
         STATE.clock.status = 'closed';
         saveState();
+        wsBroadcast({ t: 'clock', clock: clockInfo(), serverTime: Date.now() });
       } else if (a === 'reopenDay') {
         STATE.clock.status = 'running';
         STATE.clock.endsAt = Math.max(STATE.clock.endsAt || 0, Date.now() + 10 * 60000);
         saveState();
+        wsBroadcast({ t: 'clock', clock: clockInfo(), serverTime: Date.now() });
       } else if (a === 'resetTimer') {
         // stop the clock AND clear today's per-student start stamps (the "you started at" timer)
         STATE.clock = { status: 'idle', startedAt: null, durationMin: null, endsAt: null };
         STATE.starts[STATE.activeDay] = {};
         saveState();
+        wsBroadcast({ t: 'clock', clock: clockInfo(), starts: {}, serverTime: Date.now() });
+      } else if (a === 'restoreState') {
+        // SAFE RESTORE — re-apply a state snapshot (used to carry student work across a redeploy).
+        const s = (body && body.state) || null;
+        if (!s || typeof s !== 'object') return send({ ok: false, error: 'BAD_STATE' }, 400);
+        if (Array.isArray(s.roster) && s.roster.length) STATE.roster = s.roster.map(String);
+        STATE.activeDay = parseInt(s.activeDay, 10) || STATE.activeDay || 1;
+        if (s.clock && typeof s.clock === 'object' && (s.clock.status === 'idle' || s.clock.status === 'running' || s.clock.status === 'closed')) {
+          STATE.clock = { status: s.clock.status, startedAt: s.clock.startedAt || null, durationMin: s.clock.durationMin || null, endsAt: s.clock.endsAt || null };
+        }
+        if (s.boardMode && ['growth', 'podium', 'full'].includes(s.boardMode)) STATE.boardMode = s.boardMode;
+        if (typeof s.graderBrain === 'string') STATE.graderBrain = s.graderBrain;
+        if (typeof s.vision === 'boolean') STATE.vision = s.vision;
+        if (s.codenames && typeof s.codenames === 'object') STATE.codenames = s.codenames;
+        if (s.starts && typeof s.starts === 'object') STATE.starts = s.starts;
+        if (s.assignments && typeof s.assignments === 'object') STATE.assignments = s.assignments;
+        if (s.submissions && typeof s.submissions === 'object') STATE.submissions = s.submissions;
+        if (s.grades && typeof s.grades === 'object') STATE.grades = s.grades;
+        if (s.selfChecks && typeof s.selfChecks === 'object') STATE.selfChecks = s.selfChecks;
+        saveState();
+        wsBroadcast({ t: 'clock', clock: clockInfo(), starts: STATE.starts[STATE.activeDay] || {}, serverTime: Date.now() });
       } else if (a === 'addStudent') {
         const name = String(body.name || '').trim();
         if (!name) return send({ ok: false, error: 'BAD_NAME' }, 400);
@@ -1103,6 +1234,15 @@ const server = http.createServer(async (req, res) => {
   } catch (e) {
     res.writeHead(500); res.end('Server error: ' + e.message);
   }
+});
+
+// WebSocket upgrade: /ws
+server.on('upgrade', (req, socket, head) => {
+  try {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname !== '/ws') { socket.destroy(); return; }
+    wsHandleUpgrade(req, socket, head);
+  } catch (_) { socket.destroy(); }
 });
 
 server.listen(CFG.PORT, '0.0.0.0', () => {
