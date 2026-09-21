@@ -93,6 +93,14 @@
   .headclock .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);}
   .headclock.running .dot{background:var(--green);animation:blink 1.6s infinite;}
   .headclock.late .dot{background:var(--red);animation:blink .8s infinite;}
+  .onlinechip{
+    margin-left:auto;display:flex;align-items:center;gap:var(--s2);
+    background:var(--raised);border:1px solid var(--line);border-radius:999px;
+    padding:7px 15px;font-weight:700;font-variant-numeric:tabular-nums;font-size:13px;
+    min-height:38px;color:var(--dim);
+  }
+  .onlinechip .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+  .onlinechip .dot.on{background:var(--green);animation:blink 2.4s infinite;}
   @keyframes blink{50%{opacity:.35;}}
   main{max-width:1120px;width:100%;margin:0 auto;padding:var(--s5) var(--s5) calc(var(--s7) + 40px);}
 
@@ -379,6 +387,9 @@
   <div class="maincol">
     <header class="topbar">
       <h1 id="pageTitle">Board</h1>
+      <div class="onlinechip" id="onlineChip" role="status" aria-live="polite" style="display:none;">
+        <span class="dot on"></span><span id="onlineText">0/0 logged in</span>
+      </div>
       <div class="headclock" id="headClock" role="status" aria-live="polite" title="Live clock — opens the Class board">
         <span class="dot"></span><span id="headClockText">— · --:--</span>
       </div>
@@ -536,6 +547,7 @@
             <h3><svg class="ic"><use href="#i-clock"/></svg> Active day & clock</h3>
             <div class="field"><label for="adminDaySelect">Active day</label><select id="adminDaySelect"></select></div>
             <div class="field"><label for="adminDuration">Clock duration (minutes) — defaults to the day's limit</label><input type="number" id="adminDuration" min="5" max="240"></div>
+            <p class="faint" style="margin-bottom:var(--s2);">You are the only one who starts the timer. Pressing <b>Start clock</b> begins timing <b>only the students logged in right now</b> — and it updates for every screen in the room at once.</p>
             <div style="display:flex;gap:var(--s2);flex-wrap:wrap;">
               <button class="btn" id="startClockBtn"><svg class="ic"><use href="#i-play"/></svg> Start clock</button>
               <button class="btn ghost" id="closeDayBtn"><svg class="ic"><use href="#i-stop"/></svg> Close day</button>
@@ -560,7 +572,7 @@
       <!-- START TRACKER -->
       <section id="view-tracker" style="display:none;">
         <div class="clockbar" id="clockbarTracker"></div>
-        <p class="pagelead">Time your students live. Everyone is stamped the moment they first sign in on the active day — watch who started, who is still building, and who went over the day's limit.</p>
+        <p class="pagelead">Time your students live only when they are actually in the room. The timer starts when <b>you</b> press <b>Start clock</b> in the Console — it stamps exactly the students who are logged in at that moment. Late sign-ins are stamped when they next log in, and your Logged-in counter shows who is online right now.</p>
         <div class="card">
           <h3><svg class="ic"><use href="#i-clock"/></svg> Day <span id="startTrackerDay"></span> — who started when</h3>
           <div style="overflow-x:auto;"><table class="lb" id="startTrackerTable"><tbody></tbody></table></div>
@@ -683,7 +695,7 @@ const BADGE_ICON = {goal:'target',craft:'sparkles',creativity:'bulb',technical:'
 const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let BOOT=null, DEMO=false, SESSION=null, PIN='', briefDay=1, studentDay=1;
-let clockTimer=null, lastAdmin=null, pendingFiles=[], lastAnimatedTotal=null, pbCelebrated={}, draftTimer=null, currentView='board';
+let clockTimer=null, lastAdmin=null, pendingFiles=[], lastAnimatedTotal=null, pbCelebrated={}, draftTimer=null, currentView='board', heartbeatTimer=null;
 
 const NAV_ITEMS = [
   {id:'myspace',  label:'Today',       icon:'user',   roles:['student']},
@@ -841,17 +853,40 @@ function enterApp(session){
   const initials = session.name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
   $('sideAvatar').textContent = initials || '?';
   $('sideName').textContent = session.role==='student' ? (BOOT.codenames[session.name]||session.name) : 'Instructor';
-  $('sideRole').textContent = session.role;
+  // clear role labels so nobody confuses the PRACTICE side with the CONSOLE
+  $('sideRole').textContent = session.role==='student' ? 'Practice · student' : 'Console · instructor';
+  $('sideRole').style.color = session.role==='student' ? 'var(--green)' : 'var(--gold-strong)';
   buildNav();
-  if(session.role==='student'){ ME = session.name; openDashboard(session.name, session.lastView||'myspace'); }
+  if(session.role==='student'){
+    ME = session.name;
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = setInterval(sendHeartbeat, 20000); sendHeartbeat();
+    setInterval(refreshOnline, 15000);
+    openDashboard(session.name, session.lastView||'myspace');
+  }
   else {
     let v = session.lastView||'run';
     if(v==='console') v='run'; // legacy single-console view was split into pages
+    clearInterval(heartbeatTimer);
+    refreshOnline();
+    setInterval(refreshOnline, 15000);
     showView(v);
   }
   renderAll();
   startClockTicker();
   if(session.role==='instructor' && !lastAdmin && !DEMO) loadAdminData();
+}
+async function sendHeartbeat(){
+  if(!ME || DEMO) return;
+  try{ const r = await api('/api/heartbeat', {name:ME}); window.BOOT.online = r.online; }catch(_){}
+}
+async function refreshOnline(){
+  if(DEMO || !BOOT) return;
+  try{
+    const r = await api('/api/online', {});
+    if(window.BOOT) window.BOOT.online = r.online;
+    renderOnline();
+  }catch(_){}
 }
 async function loadAdminData(){
   try{ lastAdmin = await api('/api/admin', {pin:PIN, action:'reloadDays'}); renderAdmin(); }catch(_){}
@@ -1403,18 +1438,24 @@ function fmtElapsed(ms){
 function renderStartTracker(){
   const starts = (lastAdmin && lastAdmin.starts) || {};
   const attempts = (lastAdmin && lastAdmin.attemptsToday) || {};
+  const online = (lastAdmin && lastAdmin.online) || (BOOT && BOOT.online) || [];
   $('startTrackerDay').textContent = BOOT.activeDay;
   const day = BOOT.days[BOOT.activeDay-1];
   const tbody = $('startTrackerTable').querySelector('tbody');
   if(!BOOT.roster.length){ tbody.innerHTML = '<tr><td class="muted">No students on the roster yet.</td></tr>'; return; }
-  let head = `<tr><th>Student</th><th>Started</th><th>Time in</th><th>Day limit</th><th>Status</th></tr>`;
+  let head = `<tr><th>Student</th><th>Logged in</th><th>Started</th><th>Time in</th><th>Day limit</th><th>Status</th></tr>`;
   tbody.innerHTML = head + BOOT.roster.map(n=>{
     const st = starts[n];
+    const isOn = online.includes(n);
     const sub = attempts[n] ? 'submitted' : 'not submitted';
     const status = st ? sub : 'not started yet';
     const over = st && day && (Date.now()-st) > day.timeLimitMin*60000;
+    const loginCell = isOn
+      ? '<span class="alert ok" style="margin:0;padding:2px 10px;white-space:nowrap;">online</span>'
+      : '<span class="faint">signed out</span>';
     return `<tr class="startrow">
       <td><b>${esc(n)}</b></td>
+      <td>${loginCell}</td>
       <td>${st?fmtClockTime(st):'<span class="faint">—</span>'}</td>
       <td class="elapsed" data-from="${st||''}" style="font-weight:700;color:${over?'var(--red)':'var(--gold-strong)'}">${st?fmtElapsed(Date.now()-st):'<span class="faint">—</span>'}</td>
       <td class="faint">${day?day.timeLimitMin+' min':'—'}</td>
@@ -1462,6 +1503,9 @@ async function adminAction(body){
   BOOT.activeDay = r.activeDay; BOOT.clock = r.clock; BOOT.roster = r.roster;
   BOOT.boardMode = r.boardMode; BOOT.brain = r.brain; BOOT.spotlights = r.spotlights;
   if(r.vision !== undefined) BOOT.vision = r.vision;
+  if(r.online) BOOT.online = r.online;
+  if(r.starts !== undefined) lastAdmin = lastAdmin || {};
+  if(lastAdmin){ lastAdmin.starts = r.starts; lastAdmin.attemptsToday = r.attemptsToday; lastAdmin.online = r.online; }
   BOOT.board = undefined;
   renderAll();
   return r;
@@ -1509,9 +1553,17 @@ function renderAll(){
   renderBoard();
   renderBriefs();
   renderRules();
+  renderOnline();
   if(ME && window.ME_DATA) renderStudent();
   if(PIN) renderAdmin();
   if(SESSION) renderAccount();
+}
+function renderOnline(){
+  const chip = $('onlineChip'); if(!chip) return;
+  const online = (BOOT && BOOT.online) || [];
+  const total = (BOOT && BOOT.roster) ? BOOT.roster.length : 0;
+  chip.style.display = 'flex';
+  $('onlineText').textContent = online.length + '/' + total + ' logged in';
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 

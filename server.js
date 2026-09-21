@@ -164,6 +164,14 @@ function saveState() {
 loadState();
 try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (_) {}
 
+/* ---------------- live presence (who is logged in RIGHT NOW) ---------------- */
+const ONLINE = {};              // { [name]: last heartbeat ms } — in memory only
+const ONLINE_TTL = 90 * 1000;   // a student counts as online for 90s after their last heartbeat
+function onlineNames() {
+  const now = Date.now();
+  return STATE.roster.filter((n) => ONLINE[n] && now - ONLINE[n] < ONLINE_TTL);
+}
+
 /* ---------------- accounts (users.json) ---------------- */
 let USERS = { users: [] };
 function loadUsers() {
@@ -776,6 +784,7 @@ async function handleAPI(req, res, url) {
         spotlights: spot,
         providers: providerStatus(),
         brain: STATE.graderBrain,
+        online: onlineNames(),
         serverTime: Date.now(),
       });
     }
@@ -786,11 +795,16 @@ async function handleAPI(req, res, url) {
         return send({ ok: false, error: 'BAD_CREDENTIALS: wrong username or password' }, 401);
       }
       if (user.role === 'student' && !STATE.roster.includes(user.name)) STATE.roster.push(user.name);
-      // record first engagement with the active day = their start time
+      // record first engagement with the active day = their start time.
+      // the INSTRUCTOR starts the clock; a student's timer begins only once it is running
+      // (either they were online at start, or they sign in late while it runs).
       const day = STATE.activeDay;
       if (user.role === 'student') {
-        STATE.starts[day] = STATE.starts[day] || {};
-        if (!STATE.starts[day][user.name]) { STATE.starts[day][user.name] = Date.now(); saveState(); }
+        ONLINE[user.name] = Date.now();
+        if (STATE.clock.status === 'running') {
+          STATE.starts[day] = STATE.starts[day] || {};
+          if (!STATE.starts[day][user.name]) { STATE.starts[day][user.name] = Date.now(); saveState(); }
+        }
       }
       return send({
         ok: true, role: user.role, name: user.name,
@@ -802,9 +816,12 @@ async function handleAPI(req, res, url) {
     if (route === '/api/me' && req.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').trim();
       if (!name || !STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
-      // record start time on first access to the active day
-      STATE.starts[STATE.activeDay] = STATE.starts[STATE.activeDay] || {};
-      if (!STATE.starts[STATE.activeDay][name]) { STATE.starts[STATE.activeDay][name] = Date.now(); saveState(); }
+      ONLINE[name] = Date.now(); // heartbeat for the logged-in counter
+      // record start time on first access while the clock is running
+      if (STATE.clock.status === 'running') {
+        STATE.starts[STATE.activeDay] = STATE.starts[STATE.activeDay] || {};
+        if (!STATE.starts[STATE.activeDay][name]) { STATE.starts[STATE.activeDay][name] = Date.now(); saveState(); }
+      }
       const days = {};
       for (let d = 1; d <= DAYS.days.length; d++) {
         days[d] = {
@@ -822,8 +839,18 @@ async function handleAPI(req, res, url) {
       });
     }
 
-    if (route === '/api/codename' && req.method === 'POST') {
+    if (route === '/api/heartbeat' && req.method === 'POST') {
       const name = String(body.name || '').trim();
+      if (name && STATE.roster.includes(name)) ONLINE[name] = Date.now();
+      return send({ ok: true, online: onlineNames() });
+    }
+
+    if (route === '/api/online' && req.method === 'POST') {
+      // public read: who is logged in right now (for the logged-in counter)
+      return send({ ok: true, online: onlineNames(), clock: clockInfo() });
+    }
+
+    if (route === '/api/codename' && req.method === 'POST') {      const name = String(body.name || '').trim();
       if (!STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
       const code = cleanCodename(body.codename);
       if (!code) { delete STATE.codenames[name]; }
@@ -895,6 +922,7 @@ async function handleAPI(req, res, url) {
         ok: true, graded, failed,
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
         starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(),
+        online: onlineNames(),
         users: usersForConsole(),
       });
     }
@@ -910,12 +938,14 @@ async function handleAPI(req, res, url) {
         saveState();
       } else if (a === 'startClock') {
         const day = STATE.activeDay;
-        STATE.clock = {
-          status: 'running',
-          startedAt: Date.now(),
-          durationMin: parseInt(body.durationMin, 10) || DAYS.days[day - 1].timeLimitMin,
-          endsAt: Date.now() + (parseInt(body.durationMin, 10) || DAYS.days[day - 1].timeLimitMin) * 60000,
-        };
+        const dur = parseInt(body.durationMin, 10) || DAYS.days[day - 1].timeLimitMin;
+        const now = Date.now();
+        STATE.clock = { status: 'running', startedAt: now, durationMin: dur, endsAt: now + dur * 60000 };
+        // the INSTRUCTOR starts the timer — stamp only the students who are logged in right now.
+        // everyone else gets stamped when they next sign in while the clock is running.
+        const loggedIn = onlineNames();
+        STATE.starts[day] = {};
+        for (const n of loggedIn) STATE.starts[day][n] = now;
         saveState();
       } else if (a === 'closeDay') {
         STATE.clock.status = 'closed';
@@ -1036,6 +1066,7 @@ async function handleAPI(req, res, url) {
         boardMode: STATE.boardMode, brain: STATE.graderBrain, vision: STATE.vision !== false,
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
         starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(),
+        online: onlineNames(),
         users: usersForConsole(),
       });
     }

@@ -1,22 +1,10 @@
 {
   "activeDay": 1,
-  "clock": {
-    "status": "idle",
-    "startedAt": null,
-    "durationMin": null,
-    "endsAt": null
-  },
+  "clock": { "status": "idle", "startedAt": null, "durationMin": null, "endsAt": null },
   "boardMode": "growth",
   "graderBrain": "auto",
   "vision": true,
-  "roster": [
-    "Emmanuel",
-    "Olamide",
-    "Ini",
-    "Malik",
-    "Damilare",
-    "Emmanuel-2"
-  ],
+  "roster": ["Emmanuel", "Olamide", "Ini", "Malik", "Damilare", "Emmanuel-2"],
   "codenames": {},
   "starts": {},
   "assignments": {},
