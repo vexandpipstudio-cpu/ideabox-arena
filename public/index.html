@@ -683,7 +683,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r14 · tracker freezes at hand-in</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r15 · timed-in freeze · friendly grade notes · single lateness source</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1317,11 +1317,27 @@ function gradeHTML(g){
     ${g.strengths && g.strengths.length?`<p style="margin-top:var(--s3);"><b style="color:var(--green)">Strengths:</b> ${g.strengths.map(esc).join(' · ')}</p>`:''}
     ${g.fixes && g.fixes.length?`<p style="margin-top:var(--s2);"><b style="color:var(--gold-strong)">Fixes:</b> ${g.fixes.map(esc).join(' · ')}</p>`:''}
     ${g.summary?`<p class="muted" style="margin-top:var(--s3);">${esc(g.summary)}</p>`:''}
+    ${coachBullet(g)}
     ${g.imageAnalysis?`<details style="margin-top:var(--s3);border:1px dashed var(--line);border-radius:8px;padding:var(--s2) var(--s3);">
       <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--dim);">${icon('mirror')} What the vision model saw in your images</summary>
       <p class="muted" style="margin-top:var(--s2);white-space:pre-line;font-size:13px;">${esc(g.imageAnalysis)}</p>
       <p class="faint" style="margin-top:var(--s2);font-size:12px;">Extra evidence only — your pasted work counts most, and the instructor has final say.</p>
     </details>`:''}`;
+}
+/* A short, forward-looking note so a low score lands as coaching, not a verdict.
+ * Goal Progress (gp) and Technical Correctness (tc) drive the line because
+ * they are the two explicit-coaching signals in the rubric. */
+function coachBullet(g){
+  const v = g.scores;
+  const fixes = (Array.isArray(g.fixes) && g.fixes.length) ? g.fixes : [];
+  const firstFix = fixes.find(f => f && f.trim()) || null;
+  let line;
+  if (v.goal >= 9 && v.technical >= 9) line = `Flawless run — every deliverable landed and the frameworks were used properly. You set the bar today. 💪`;
+  else if (v.goal >= 7 && v.goal < 9) line = `Almost the full pack — add the last missing piece${firstFix ? ` (for one: ${String(firstFix[0]).toLowerCase()+firstFix.slice(1).replace(/[.]+$/,'')})` : ''} and this jumps to a full score.`;
+  else if (v.goal >= 5 && v.goal < 7) line = `Real substance here, but some pieces are incomplete or off-brief. Nail the missing deliverables next time${firstFix ? ` — start with: ${String(firstFix[0]).toLowerCase()+firstFix.slice(1).replace(/[.]+$/,'')}` : ''} — and this score climbs fast.`;
+  else if (v.goal >= 3 && v.goal < 5) line = `The ideas are in there — the finished pieces just weren't pasted in. Rebuild it with the outputs as a real pack${firstFix ? ` (first move: ${String(firstFix[0]).toLowerCase()+firstFix.slice(1).replace(/[.]+$/,'')})` : ''} and this turns around fast.`;
+  else line = `That's not a verdict, it's a starting point.${firstFix ? ` First move after class: ${String(firstFix[0]).toLowerCase()+firstFix.slice(1).replace(/[.]+$/,'')}.` : ''} Fix the foundations — the grade will follow.`;
+  return `<div class="alert ok" style="margin-top:var(--s3);">${icon('trend')} ${line}</div>`;
 }
 function coachHTML(r){
   return `${scoreChips(r.estimated, null)}
@@ -1494,18 +1510,19 @@ function renderStartTracker(){
   const online = (lastAdmin && lastAdmin.online) || (BOOT && BOOT.online) || [];
   $('startTrackerDay').textContent = BOOT.activeDay;
   const day = BOOT.days[BOOT.activeDay-1];
-  const endsAt = BOOT.clock && BOOT.clock.endsAt;
   const tbody = $('startTrackerTable').querySelector('tbody');
   if(!BOOT.roster.length){ tbody.innerHTML = '<tr><td class="muted">No students on the roster yet.</td></tr>'; return; }
   let head = `<tr><th>Student</th><th>Logged in</th><th>Started</th><th>Time in</th><th>Day limit</th><th>Status</th></tr>`;
   tbody.innerHTML = head + BOOT.roster.map(n=>{
     const st = starts[n];
-    const sub = submittedAt[n];
+    // server is the single source of truth for lateness: {at, minutesLate}
+    const subObj = submittedAt[n];
+    const sub = subObj ? subObj.at : null;
+    const minsLate = subObj ? subObj.minutesLate : 0;
     const isOn = online.includes(n);
     // a submitted student's "time in" froze when they handed in
     const frozen = sub ? (sub - st) : null;
     const dayLimitMs = day ? day.timeLimitMin*60000 : 0;
-    const minsLate = (sub && endsAt) ? Math.max(0, Math.ceil((sub - endsAt)/60000)) : 0;
     let status, statusCls = 'faint';
     if(sub && st != null){
       status = minsLate > 0 ? `submitted · ${minsLate} min late` : 'submitted · on time';

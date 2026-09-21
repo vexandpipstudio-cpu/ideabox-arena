@@ -999,7 +999,12 @@ function submittedAtToday() {
   const out = {};
   for (const n of STATE.roster) {
     const list = attempts(STATE.activeDay, n);
-    if (list.length) out[n] = list[list.length - 1].at;
+    if (list.length) {
+      const at = list[list.length - 1].at;
+      // send the SERVER's own late-minutes so the console tracker and the AI
+      // grader can never disagree — one rounding rule, one source of truth.
+      out[n] = { at, minutesLate: minutesLate(STATE.activeDay, at) };
+    }
   }
   return out;
 }
