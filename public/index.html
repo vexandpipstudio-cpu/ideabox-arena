@@ -608,7 +608,7 @@
         <div class="admin-grid">
           <div class="card">
             <h3><svg class="ic"><use href="#i-filecheck"/></svg> Grade Day <span id="gradeDayLabel"></span> with the AI agent</h3>
-            <p class="faint" style="margin-bottom:var(--s3);">Grades every student who submitted on the active day, one by one. This can take a minute or two.</p>
+            <p class="faint" style="margin-bottom:var(--s3);">Grades every student who submitted on the active day, one by one — <b>in the background</b> while you keep working. Progress streams live below.</p>
             <label class="radiochoice" style="margin-bottom:var(--s3);display:flex;">
               <input type="checkbox" id="visionToggle">
               <span><b>Vision pass</b> — before grading, a free vision model reads each student's uploaded images and adds what it sees as extra evidence. Pasted work still counts most; your eye has final say.</span>
@@ -662,6 +662,16 @@
           <div style="overflow-x:auto;"><table class="lb" id="detailTable"><tbody></tbody></table></div>
         </div>
         <div class="card" style="margin-top:var(--s4);">
+          <h3><svg class="ic"><use href="#i-refresh"/></svg> Cloud backup — your safety net</h3>
+          <p class="faint" style="margin-bottom:var(--s3);">Every submission, grade and the clock are saved to a <b>private</b> GitHub repo within seconds of any change, plus a safety sweep every 5 minutes. This free server wipes its disk on every restart — the cloud backup is what saves student work, automatically.</p>
+          <div id="backupStatusOut" style="margin-bottom:var(--s3);"></div>
+          <div style="display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s4);">
+            <button class="btn small" id="backupNowBtn"><svg class="ic"><use href="#i-upload"/></svg> Back up now</button>
+            <button class="btn ghost small" id="restoreCloudBtn"><svg class="ic"><use href="#i-refresh"/></svg> Restore from cloud</button>
+          </div>
+          <p class="faint">Restore overwrites the current state with the latest cloud snapshot — use it after a server wipe, or to undo a mistake on a shared machine.</p>
+        </div>
+        <div class="card" style="margin-top:var(--s4);">
           <h3><svg class="ic"><use href="#i-download"/></svg> Export & danger zone</h3>
           <div style="display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s4);">
             <button class="btn ghost small" id="exportStandings"><svg class="ic"><use href="#i-download"/></svg> Standings CSV</button>
@@ -696,6 +706,7 @@ const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion:
 
 let BOOT=null, DEMO=false, SESSION=null, PIN='', briefDay=1, studentDay=1;
 let clockTimer=null, lastAdmin=null, pendingFiles=[], lastAnimatedTotal=null, pbCelebrated={}, draftTimer=null, currentView='board', heartbeatTimer=null;
+let gradeQueue=null, queuePoll=null;
 
 const NAV_ITEMS = [
   {id:'myspace',  label:'Today',       icon:'user',   roles:['student']},
@@ -843,6 +854,12 @@ function connectWS(){
     else if(m.t === 'online' && BOOT){ BOOT.online = m.online; try{ renderOnline(); if(PIN && $('startTrackerTable')) renderStartTracker(); }catch(_){} }
     else if(m.t === 'submit'){ if(PIN) loadAdminData(); if(ME) refreshMe(); }
     else if(m.t === 'gradesDone'){ if(PIN) loadAdminData(); }
+    else if(m.t === 'gradeQueue' && PIN){ try{ gradeQueue = m.queue || gradeQueueSnapshot(); updateGradeProgress(); }catch(_){} }
+    else if(m.t === 'grade'){
+      if(PIN){ try{ loadAdminData(); }catch(_){} }
+      if(ME && m.student === ME) refreshMe();
+    }
+    else if(m.t === 'backupStatus'){ if(BOOT && m.backup) BOOT.backup = m.backup; }
     else if(m.t === 'hello' || m.t === 'pong'){ /* keepalive */ }
   };
   ws.onclose = () => {
@@ -913,7 +930,17 @@ async function refreshOnline(){
   }catch(_){}
 }
 async function loadAdminData(){
-  try{ lastAdmin = await api('/api/admin', {pin:PIN, action:'reloadDays'}); renderAdmin(); }catch(_){}
+  try{
+    lastAdmin = await api('/api/admin', {pin:PIN, action:'reloadDays'});
+    renderAdmin();
+    // rejoin a grading run in progress (e.g. after a refresh)
+    try{
+      const g = await api('/api/grading', {pin:PIN});
+      gradeQueue = g.queue;
+      updateGradeProgress();
+      if(gradeQueue && gradeQueue.status==='running') startQueuePolling();
+    }catch(_){}
+  }catch(_){}
 }
 function signOut(){
   try{ sessionStorage.removeItem('arena-session'); }catch(_){}
@@ -1536,29 +1563,46 @@ async function adminAction(body){
 }
 async function gradeAll(){
   const day = BOOT.activeDay;
-  const vision = BOOT.vision !== false;
-  const t0 = Date.now();
-  let elapsedTimer = setInterval(()=>{
-    const s = Math.round((Date.now()-t0)/1000);
-    const el = $('gradeElapsed'); if(el) el.textContent = s+'s';
-  }, 1000);
-  $('gradeProgress').innerHTML = `<span class="spinner"></span>The ${esc(BOOT.brain)} brain is grading submissions one by one${vision?' (vision pass is reading any uploaded images)':''}. On the free tier this can take several minutes — keep this tab open. <span class="faint">Elapsed: <b id="gradeElapsed">0s</b></span>`;
   try{
     const r = await api('/api/grade', {pin:PIN, day});
-    clearInterval(elapsedTimer);
-    const ok = r.graded.length, bad = r.failed||[];
-    lastAdmin = r; BOOT.spotlights = r.spotlights;
-    renderAll(); renderAdminTables();
-    const vis = r.graded.filter(g=>g.imageAnalysis).length;
-    $('gradeProgress').innerHTML = `Graded ${ok} submission${ok===1?'':'s'}${ok?` — brain used: ${esc(r.graded[0].provider||'ai')} (${esc(r.graded[0].model||'')})`:''}.` +
-      (vis?` <span class="faint">Vision pass read images for ${vis} of them${r.graded.find(g=>g.visionModel)?' via '+esc(r.graded.find(g=>g.visionModel).visionModel):''}.</span>`:'') +
-      (bad.length?` <span style="color:var(--red)">Failed: ${bad.map(f=>esc(f.student)+' ('+esc(f.error)+')').join('; ')}</span>`:'');
-    toast('Grading complete — '+ok+' graded.', ok?'ok':'warn');
+    gradeQueue = r.queue;
+    startQueuePolling();
+    updateGradeProgress();
+    toast('Grading started — '+r.queued+' student'+(r.queued===1?'':'s')+' queued. You can keep working; it runs in the background.','ok');
   }catch(e){
-    clearInterval(elapsedTimer);
-    $('gradeProgress').innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
     toast(e.message,'err');
   }
+}
+function gradeQueueSnapshot(){ return gradeQueue || {status:'idle', total:0, done:0, current:null, failed:[], brain:BOOT?BOOT.brain:'auto'}; }
+function startQueuePolling(){
+  if(queuePoll) clearInterval(queuePoll);
+  queuePoll = setInterval(async ()=>{
+    try{ const r = await api('/api/grading', {pin:PIN}); gradeQueue = r.queue; updateGradeProgress(); if(r.queue && (r.queue.status==='done'||r.queue.status==='idle') && gradeQueue && gradeQueue.status==='done'){ lastAdmin = r; renderAdminTables(); } }catch(_){}
+    if(gradeQueue && (gradeQueue.status==='done' || gradeQueue.status==='idle')) updateGradeProgress(true);
+  }, 3000);
+}
+function updateGradeProgress(finalized){
+  const el = $('gradeProgress'); if(!el || !gradeQueue) return;
+  const q = gradeQueue;
+  if(q.status==='idle'){
+    el.innerHTML = `<span class="faint">No grading run in progress. Submit the class & press <b>Grade all submissions</b>.</span>`;
+    if(queuePoll){ clearInterval(queuePoll); queuePoll=null; }
+    return;
+  }
+  const pctTotal = q.total ? Math.round((q.done + (q.failed||[]).length) * 100 / q.total) : 0;
+  const eta = q.done>0 ? Math.ceil(((q.total-q.done)/Math.max(1,q.done)) * 4) : q.total*4;
+  let head = `<div style="display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s2);"><span class="spinner"></span><b>Grading in progress</b> — ${q.done+q.failed.length} of ${q.total} done${q.current?` · now on <b>${esc(q.current)}</b>`:''}</div>`;
+  let days = '<div style="width:100%;height:10px;background:#0a0f1c;border-radius:999px;overflow:hidden;border:1px solid var(--line-soft);margin:6px 0;"><div style="height:100%;width:'+pctTotal+'%;background:linear-gradient(90deg,var(--gold),var(--green));border-radius:999px;transition:width .5s;"></div></div>';
+  let tail = `<span class="faint">Brain: ${esc(q.brain||'auto')}${q.vision?' · vision pass on':''} · runs in the background — you can leave this page. ~${eta}s remaining</span>`;
+  if(q.failed && q.failed.length) tail += ` · <span style="color:var(--red)">${q.failed.length} failed</span>`;
+  el.innerHTML = head + days + tail;
+  el.style.background='rgba(61,220,132,.05)'; el.style.border='1px solid var(--green-deep)'; el.style.borderRadius='10px'; el.style.padding='12px 14px'; el.style.marginTop='var(--s3)'; el.style.fontSize='13.5px'; el.style.lineHeight='1.6';
+  if(q.status==='done'){
+    el.innerHTML = `<b style="color:var(--green)">Grading finished</b> — ${q.done} graded, ${q.failed.length} failed. ${q.failed.length ? `<span style="color:var(--red)">Failed: ${q.failed.map(f=>esc(f.student)+' ('+esc(f.error)+')').join('; ')}</span>`:''}`;
+    el.style.background='rgba(61,220,132,.07)';
+  }
+  if(q.status==='done' && finalized && queuePoll){ clearInterval(queuePoll); queuePoll=null; }
+  renderAdminTables();
 }
 async function exportCSV(type){
   try{
@@ -1579,7 +1623,7 @@ function renderAll(){
   renderRules();
   renderOnline();
   if(ME && window.ME_DATA) renderStudent();
-  if(PIN) renderAdmin();
+  if(PIN) { renderAdmin(); renderBackupStatus(); }
   if(SESSION) renderAccount();
 }
 function renderOnline(){
@@ -1669,6 +1713,37 @@ $('overrideBtn').addEventListener('click', async ()=>{
 });
 $('exportStandings').addEventListener('click', ()=>exportCSV('standings'));
 $('exportDetailed').addEventListener('click', ()=>exportCSV('detailed'));
+function fmtBackupTime(ts){ return ts ? new Date(ts).toLocaleTimeString() : 'never'; }
+function renderBackupStatus(){
+  const el = $('backupStatusOut'); if(!el) return;
+  const b = (BOOT && BOOT.backup) || {configured:false};
+  if(!b.configured){
+    el.innerHTML = `<div class="alert warn">Backup is OFF — set <b>BACKUP_GITHUB_TOKEN</b> and <b>BACKUP_REPO</b> in the server's environment to switch it on. Until then, this server's disk is the only copy (it is wiped on every restart).</div>`;
+    return;
+  }
+  const ok = b.on !== false;
+  el.innerHTML = `<div class="alert ${ok?'ok':'err'}">${ok?`<b>Backup is ON</b> — saving to <span class="pw">${esc(b.repo||'')}</span>`:'<b>Backup is configured but failing</b>'} · last cloud save ${fmtBackupTime(b.cloudAt)}${b.lastError?` · <span style="color:var(--red)">error: ${esc(b.lastError)}</span>`:''}</div>`;
+}
+$('backupNowBtn').addEventListener('click', async ()=>{
+  try{
+    $('backupNowBtn').disabled = true;
+    const r = await api('/api/backup', {pin:PIN, action:'backupNow'});
+    if(BOOT && r.backup) BOOT.backup = r.backup;
+    renderBackupStatus();
+    toast(r.manual && r.manual.ok ? 'Backed up to the cloud.' : 'Backup failed: '+((r.manual&&r.manual.reason)||'unknown'), r.manual&&r.manual.ok?'ok':'err');
+  }catch(e){ toast(e.message,'err'); }
+  finally{ $('backupNowBtn').disabled = false; }
+});
+$('restoreCloudBtn').addEventListener('click', async ()=>{
+  if(!confirm('Restore the state from the CLOUD snapshot? This overwrites the current submissions, grades and clock with the last cloud backup.')) return;
+  try{
+    const r = await api('/api/backup', {pin:PIN, action:'restore'});
+    lastAdmin = r; BOOT = await api('/api/bootstrap');
+    renderAll(); renderAdminTables(); renderBackupStatus();
+    const tot = Object.values(r.attemptsToday||{}).reduce((a,b)=>a+b,0);
+    toast('Restored from the cloud — '+tot+' submissions and the clock are back.','ok');
+  }catch(e){ toast(e.message,'err'); }
+});
 $('resetBtn').addEventListener('click', async ()=>{
   if(!confirm('Reset the ENTIRE week? Roster, submissions and grades will be wiped.')) return;
   if(!confirm('Really sure? This cannot be undone.')) return;

@@ -55,6 +55,21 @@ const CFG = {
   MAX_IMAGE_MB: 3,
 };
 
+/* Cloud backup (survives Render's ephemeral free-tier disk).
+ * Snapshots of data/state.json are pushed to a PRIVATE GitHub repo via the
+ * Contents API. No new account needed — reuses a repo-scoped PAT kept in a
+ * Render env var (never in the repo). Empty BACKUP_GITHUB_TOKEN = backups off. */
+const BACKUP = {
+  token: String(env('BACKUP_GITHUB_TOKEN', '')),
+  repo: String(env('BACKUP_REPO', '')),                 // "owner/repo"
+  branch: String(env('BACKUP_BRANCH', 'main')),
+  path: String(env('BACKUP_PATH', 'state.latest.json')),// main snapshot file
+  historyDir: String(env('BACKUP_HISTORY_DIR', 'backups')), // timestamped history
+  keep: 60,                                             // keep this many history files
+  ready: false,                                         // flipped true once boot restore has decided
+};
+const BACKUP_META = { on: !!(BACKUP.token && BACKUP.repo), lastAt: 0, lastError: '', cloudAt: 0 };
+
 /* ---------------- LLM brains ---------------- */
 const PROVIDERS = {
   mistral: {
@@ -160,9 +175,64 @@ function saveState() {
   const tmp = STATE_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(STATE, null, 2));
   fs.renameSync(tmp, STATE_FILE);
+  if (BACKUP.ready) backupSoon();  // any state change → schedule a cloud snapshot
 }
 loadState();
 try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (_) {}
+
+/* Boot auto-restore: Render's free tier wipes the disk on every restart, so on
+ * boot we compare the on-disk state with the cloud snapshot and, if the disk is
+ * empty/stale while the cloud holds richer data, restore from the cloud. */
+async function bootAutoRestore() {
+  if (!BACKUP.token || !BACKUP.repo) return;
+  try {
+    const diskAttempts = Object.values(STATE.submissions || {}).flatMap(Object.values).reduce((n, l) => n + l.length, 0);
+    const file = await ghRequest('GET', BACKUP.path + '?ref=' + encodeURIComponent(BACKUP.branch));
+    if (!file || !file.content) return;
+    const j = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+    const cloud = j.state || j;
+    const cloudAttempts = Object.values(cloud.submissions || {}).flatMap(Object.values).reduce((n, l) => n + l.length, 0);
+    if (cloudAttempts > diskAttempts) {
+      applyStateSnapshot(cloud);
+      console.log(`[backup] boot auto-restore: cloud had ${cloudAttempts} attempts vs ${diskAttempts} on disk — restored.`);
+    } else {
+      console.log(`[backup] boot check: cloud ${cloudAttempts} attempts, disk ${diskAttempts} — disk is current.`);
+    }
+  } catch (e) {
+    console.log('[backup] boot auto-restore skipped:', e.message);
+  } finally {
+    BACKUP.ready = true;
+  }
+}
+
+/* Background grader: runs the queue for one student at a time. */
+async function gradeQueueRun() {
+  if (GRADE_QUEUE.status !== 'running') return;
+  const { day, names } = GRADE_QUEUE._names;
+  while (GRADE_QUEUE._idx < names.length && GRADE_QUEUE.status === 'running') {
+    const n = names[GRADE_QUEUE._idx];
+    GRADE_QUEUE.current = n;
+    wsBroadcastQueue();
+    if (GRADE_QUEUE._idx > 0) await sleep(4000); // pace free-tier rate limits
+    try {
+      const g = await gradeSubmission(day, n, GRADE_QUEUE.brain === 'auto' ? null : GRADE_QUEUE.brain);
+      GRADE_QUEUE.done += 1;
+      wsBroadcast({ t: 'grade', day, student: n, grade: g, serverTime: Date.now() });
+      // per-student nudge (drives the instructor's live progress bar)
+      wsBroadcastQueue();
+    } catch (e) {
+      GRADE_QUEUE.failed.push({ student: n, error: e.message });
+      wsBroadcastQueue();
+    }
+    GRADE_QUEUE._idx += 1;
+    GRADE_QUEUE.current = null;
+  }
+  GRADE_QUEUE.status = 'done';
+  GRADE_QUEUE.finishedAt = Date.now();
+  GRADE_QUEUE.current = null;
+  wsBroadcastQueue();
+  wsBroadcast({ t: 'gradesDone', day: GRADE_QUEUE.day, graded: GRADE_QUEUE.done, failed: GRADE_QUEUE.failed.length, serverTime: Date.now() });
+}
 
 /* ---------------- live presence (who is logged in RIGHT NOW) ---------------- */
 const ONLINE = {};              // { [name]: last heartbeat ms } — in memory only
@@ -273,6 +343,152 @@ setInterval(() => {
     if (now - last > 120000) { try { sock.socket.end(); } catch (_) {} WS.delete(sock); WS_ALIVE.delete(sock); }
   }
 }, 30000).unref();
+
+/* ---------------- GitHub contents client (zero-dependency) ---------------- */
+async function ghRequest(method, pathName, body) {
+  if (!BACKUP.token || !BACKUP.repo) { const e = new Error('backup not configured'); e.code = 'NO_BACKUP'; throw e; }
+  const url = `https://api.github.com/repos/${BACKUP.repo}/contents/${pathName}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${BACKUP.token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'ideabox-arena-backup',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    let msg = '';
+    try { msg = (await res.json()).message || ''; } catch (_) { msg = await res.text().catch(() => ''); }
+    const e = new Error(`gh ${res.status} ${pathName}: ${String(msg).slice(0, 200)}`);
+    e.status = res.status;
+    throw e;
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
+function snapshotsPayload() {
+  return {
+    savedAt: Date.now(),
+    clockEndsAt: STATE.clock && STATE.clock.endsAt || null,
+    activeDay: STATE.activeDay,
+    state: STATE, // full state — submissions, grades, starts, clock, roster…
+  };
+}
+function backupFilename() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}Z.json`;
+}
+/* push one snapshot (fast path: blind upsert of the latest file) */
+async function backupPush() {
+  if (!BACKUP.token || !BACKUP.repo) return { ok: false, reason: 'not configured' };
+  try {
+    const j = snapshotsPayload();
+    await ghRequest('PUT', BACKUP.path, {
+      message: `Arena snapshot ${new Date().toISOString()}`,
+      branch: BACKUP.branch,
+      content: b64(JSON.stringify(j)),
+    });
+    BACKUP_META.on = true; BACKUP_META.lastAt = Date.now(); BACKUP_META.cloudAt = Date.now();
+    BACKUP_META.lastError = '';
+    // cheap history copy (best-effort, only if history dir enabled)
+    if (BACKUP.historyDir) {
+      try {
+        await ghRequest('PUT', `${BACKUP.historyDir}/${backupFilename()}`, {
+          message: `Arena snapshot (history) ${new Date().toISOString()}`,
+          branch: BACKUP.branch,
+          content: b64(JSON.stringify(j)),
+        });
+      } catch (_) { /* history is a bonus */ }
+    }
+    return { ok: true, at: BACKUP_META.lastAt };
+  } catch (e) {
+    BACKUP_META.lastError = e.message;
+    wsBroadcast({ t: 'backupStatus', backup: backupStatus(), serverTime: Date.now() });
+    return { ok: false, reason: e.message };
+  }
+}
+/* push a snapshot, waiting for the previous one to finish (no parallel writes) */
+let backupChain = Promise.resolve();
+function backupSoon() {
+  if (!BACKUP.token || !BACKUP.repo) return;
+  backupChain = backupChain.then(() => backupPush()).catch(() => {});
+}
+/* full backup (latest + history + tidy) — used by the manual "Back up now" button */
+async function backupFull() {
+  const latest = await backupPush();
+  if (!latest.ok) return latest;
+  let history = [];
+  try { history = await ghRequest('GET', `${BACKUP.historyDir}?per_page=100`); } catch (_) {}
+  if (Array.isArray(history) && history.length > BACKUP.keep) {
+    const oldest = history.slice(BACKUP.keep);
+    // Delete oldest history files one by one (best-effort)
+    for (const f of oldest) {
+      try {
+        await ghRequest('DELETE', `${BACKUP.historyDir}/${f.name}`, { message: 'prune old backup', branch: BACKUP.branch, sha: f.sha });
+        await sleep(300);
+      } catch (_) { /* best-effort prune */ }
+    }
+  }
+  return latest;
+}
+function backupStatus() {
+  return { ...BACKUP_META, configured: !!(BACKUP.token && BACKUP.repo), repo: BACKUP.repo };
+}
+/* cloud restore: read the latest snapshot straight from the backup repo */
+async function backupRestoreCloud() {
+  if (!BACKUP.token || !BACKUP.repo) { const e = new Error('Backup is not configured (BACKUP_GITHUB_TOKEN + BACKUP_REPO).'); e.code = 'NO_BACKUP'; throw e; }
+  const file = await ghRequest('GET', BACKUP.path + '?ref=' + encodeURIComponent(BACKUP.branch));
+  if (!file || !file.content) throw new Error('No backup snapshot found in the cloud repo.');
+  let j;
+  try { j = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8')); } catch (_) { throw new Error('Backup snapshot is corrupted.'); }
+  const st = j.state || j;
+  applyStateSnapshot(st);
+  return {
+    ok: true,
+    restoredFrom: BACKUP.repo + '/' + BACKUP.path,
+    savedAt: j.savedAt || null,
+    attemptsToday: attemptsCountToday(),
+    clock: clockInfo(),
+  };
+}
+
+/* ---------------- background grading queue ---------------- */
+/* "Grade all" returns instantly; students are graded one by one in the
+ * background and progress streams to every open screen over /ws. */
+const GRADE_QUEUE = { status: 'idle', day: null, total: 0, done: 0, current: null, failed: [], brain: null, vision: null, startedAt: null, finishedAt: null };
+function gradeQueueSnapshot() {
+  return { status: GRADE_QUEUE.status, day: GRADE_QUEUE.day, total: GRADE_QUEUE.total, done: GRADE_QUEUE.done,
+    current: GRADE_QUEUE.current, failed: GRADE_QUEUE.failed, brain: GRADE_QUEUE.brain, vision: GRADE_QUEUE.vision,
+    startedAt: GRADE_QUEUE.startedAt, finishedAt: GRADE_QUEUE.finishedAt };
+}
+function wsBroadcastQueue() {
+  wsBroadcast({ t: 'gradeQueue', queue: gradeQueueSnapshot(), serverTime: Date.now() });
+}
+
+/* restore helper — applies a snapshot object to STATE (used by restoreState admin
+ * action, cloud restore, and boot auto-restore). */
+function applyStateSnapshot(s) {
+  if (!s || typeof s !== 'object') throw new Error('BAD_STATE');
+  if (Array.isArray(s.roster) && s.roster.length) STATE.roster = s.roster.map(String);
+  if (parseInt(s.activeDay, 10)) STATE.activeDay = parseInt(s.activeDay, 10);
+  if (s.clock && typeof s.clock === 'object' && (s.clock.status === 'idle' || s.clock.status === 'running' || s.clock.status === 'closed')) {
+    STATE.clock = { status: s.clock.status, startedAt: s.clock.startedAt || null, durationMin: s.clock.durationMin || null, endsAt: s.clock.endsAt || null };
+  }
+  if (s.boardMode && ['growth', 'podium', 'full'].includes(s.boardMode)) STATE.boardMode = s.boardMode;
+  if (typeof s.graderBrain === 'string' && (s.graderBrain === 'auto' || PROVIDERS[s.graderBrain])) STATE.graderBrain = s.graderBrain;
+  if (typeof s.vision === 'boolean') STATE.vision = s.vision;
+  if (s.codenames && typeof s.codenames === 'object') STATE.codenames = s.codenames;
+  if (s.starts && typeof s.starts === 'object') STATE.starts = s.starts;
+  if (s.assignments && typeof s.assignments === 'object') STATE.assignments = s.assignments;
+  if (s.submissions && typeof s.submissions === 'object') STATE.submissions = s.submissions;
+  if (s.grades && typeof s.grades === 'object') STATE.grades = s.grades;
+  if (s.selfChecks && typeof s.selfChecks === 'object') STATE.selfChecks = s.selfChecks;
+  saveState();
+}
 
 /* ---------------- accounts (users.json) ---------------- */
 let USERS = { users: [] };
@@ -888,6 +1104,7 @@ async function handleAPI(req, res, url) {
         brain: STATE.graderBrain,
         online: onlineNames(),
         serverTime: Date.now(),
+        backup: backupStatus(),
       });
     }
 
@@ -1011,27 +1228,51 @@ async function handleAPI(req, res, url) {
 
     /* ---- instructor ---- */
     if (route === '/api/grade' && req.method === 'POST') {
+      // BACKGROUND: enqueue and return instantly; progress streams over /ws.
       if (!isPinOk(body)) return send({ ok: false, error: 'BAD_PIN' }, 403);
       const day = parseInt(body.day, 10);
       if (!DAYS.days[day - 1]) return send({ ok: false, error: 'BAD_DAY' }, 400);
-      const names = Array.isArray(body.names) && body.names.length
+      const rawNames = Array.isArray(body.names) && body.names.length
         ? body.names.map(String)
         : STATE.roster.filter((n) => attempts(day, n).length);
-      const graded = []; const failed = [];
-      for (let ni = 0; ni < names.length; ni++) {
-        const n = names[ni];
-        if (!STATE.roster.includes(n) || !attempts(day, n).length) continue;
-        if (ni > 0) await sleep(4000); // pace free-tier rate limits between students
-        try { graded.push(await gradeSubmission(day, n, body.brain || null)); } catch (e) { failed.push({ student: n, error: e.message }); }
-      }
-      wsBroadcast({ t: 'gradesDone', day, graded: graded.length, failed: failed.length, serverTime: Date.now() });
-      return send({
-        ok: true, graded, failed,
+      const names = rawNames.filter((n) => STATE.roster.includes(n) && attempts(day, n).length);
+      if (GRADE_QUEUE.status === 'running') return send({ ok: false, error: 'GRADE_ALREADY_RUNNING' }, 409);
+      if (!names.length) return send({ ok: false, error: 'NO_SUBMISSIONS' }, 400);
+      const brain = body.brain || STATE.graderBrain || 'auto';
+      GRADE_QUEUE.status = 'running';
+      GRADE_QUEUE.day = day;
+      GRADE_QUEUE.total = names.length;
+      GRADE_QUEUE.done = 0;
+      GRADE_QUEUE.current = null;
+      GRADE_QUEUE.failed = [];
+      GRADE_QUEUE.brain = brain;
+      GRADE_QUEUE.vision = STATE.vision !== false;
+      GRADE_QUEUE.startedAt = Date.now();
+      GRADE_QUEUE.finishedAt = null;
+      GRADE_QUEUE._names = { day, names };
+      GRADE_QUEUE._idx = 0;
+      wsBroadcastQueue();
+      gradeQueueRun(); // fire and forget — the HTTP response already goes out below
+      return send({ ok: true, queued: names.length, queue: gradeQueueSnapshot() });
+    }
+
+    if (route === '/api/grading' && req.method === 'POST') {
+      if (!isPinOk(body)) return send({ ok: false, error: 'BAD_PIN' }, 403);
+      return send({ ok: true, queue: gradeQueueSnapshot(), leaderboard: computeFullRows(), spotlights: computeSpotlights() });
+    }
+
+    if (route === '/api/backup' && req.method === 'POST') {
+      if (!isPinOk(body)) return send({ ok: false, error: 'BAD_PIN' }, 403);
+      let cloud = null, manual = null, restored = null;
+      if (body.action === 'backupNow') manual = await backupFull();
+      if (body.action === 'restore') restored = await backupRestoreCloud();
+      const st = backupStatus();
+      if (body.cloud && st.configured) { try { const f = await ghRequest('GET', BACKUP.path + '?ref=' + encodeURIComponent(BACKUP.branch)); cloud = { path: BACKUP.path, sha: f && f.sha ? String(f.sha).slice(0, 7) : null, bytes: f && f.size ? f.size : null }; } catch (_) {} }
+      if (restored) { wsBroadcast({ t: 'clock', clock: clockInfo(), starts: STATE.starts[STATE.activeDay] || {}, serverTime: Date.now() }); saveState(); }
+      return send({ ok: true, backup: st, cloud, manual, restored,
+        activeDay: STATE.activeDay, clock: clockInfo(), roster: STATE.roster,
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
-        starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(),
-        online: onlineNames(),
-        users: usersForConsole(),
-      });
+        starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), online: onlineNames() });
     }
 
     if (route === '/api/admin' && req.method === 'POST') {
@@ -1074,21 +1315,7 @@ async function handleAPI(req, res, url) {
         // SAFE RESTORE — re-apply a state snapshot (used to carry student work across a redeploy).
         const s = (body && body.state) || null;
         if (!s || typeof s !== 'object') return send({ ok: false, error: 'BAD_STATE' }, 400);
-        if (Array.isArray(s.roster) && s.roster.length) STATE.roster = s.roster.map(String);
-        STATE.activeDay = parseInt(s.activeDay, 10) || STATE.activeDay || 1;
-        if (s.clock && typeof s.clock === 'object' && (s.clock.status === 'idle' || s.clock.status === 'running' || s.clock.status === 'closed')) {
-          STATE.clock = { status: s.clock.status, startedAt: s.clock.startedAt || null, durationMin: s.clock.durationMin || null, endsAt: s.clock.endsAt || null };
-        }
-        if (s.boardMode && ['growth', 'podium', 'full'].includes(s.boardMode)) STATE.boardMode = s.boardMode;
-        if (typeof s.graderBrain === 'string') STATE.graderBrain = s.graderBrain;
-        if (typeof s.vision === 'boolean') STATE.vision = s.vision;
-        if (s.codenames && typeof s.codenames === 'object') STATE.codenames = s.codenames;
-        if (s.starts && typeof s.starts === 'object') STATE.starts = s.starts;
-        if (s.assignments && typeof s.assignments === 'object') STATE.assignments = s.assignments;
-        if (s.submissions && typeof s.submissions === 'object') STATE.submissions = s.submissions;
-        if (s.grades && typeof s.grades === 'object') STATE.grades = s.grades;
-        if (s.selfChecks && typeof s.selfChecks === 'object') STATE.selfChecks = s.selfChecks;
-        saveState();
+        applyStateSnapshot(s);
         wsBroadcast({ t: 'clock', clock: clockInfo(), starts: STATE.starts[STATE.activeDay] || {}, serverTime: Date.now() });
       } else if (a === 'addStudent') {
         const name = String(body.name || '').trim();
@@ -1245,8 +1472,13 @@ server.on('upgrade', (req, socket, head) => {
   } catch (_) { socket.destroy(); }
 });
 
+// Boot auto-restore + a periodic safety backup sweep (every 5 min, chained).
+bootAutoRestore().catch(() => {});
+setInterval(() => { if (BACKUP.ready) backupSoon(); }, 5 * 60 * 1000).unref();
+
 server.listen(CFG.PORT, '0.0.0.0', () => {
   const brains = Object.entries(PROVIDERS).map(([id, p]) => `${p.key ? '✔' : '✖'} ${p.label}`).join('  ');
+  const backup = BACKUP.token && BACKUP.repo ? `✔ ${BACKUP.repo}/${BACKUP.path}` : '✖ off';
   console.log(`
   ┌────────────────────────────────────────────────────────────────────┐
   │  ⚡ IdeaBox Arena — Month 3 Week 4 Practical Week                   │
@@ -1254,6 +1486,7 @@ server.listen(CFG.PORT, '0.0.0.0', () => {
   │  UI:        http://localhost:${String(CFG.PORT).padEnd(37)}│
   │  Brains:    ${brains.padEnd(55)}│
   │  Grader:    ${(STATE.graderBrain + ' · board: ' + STATE.boardMode + ' mode').padEnd(55)}│
+  │  Backup:    ${backup.padEnd(55)}│
   │  Sign-in:   one form — username + password (see data/users.json)  │
   └────────────────────────────────────────────────────────────────────┘`);
 });
