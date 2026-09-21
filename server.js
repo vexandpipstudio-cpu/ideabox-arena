@@ -469,7 +469,7 @@ async function backupRestoreCloud() {
     ok: true,
     restoredFrom: BACKUP.repo + '/' + BACKUP.path,
     savedAt: j.savedAt || null,
-    attemptsToday: attemptsCountToday(),
+    attemptsToday: attemptsCountToday(), submittedAtToday: submittedAtToday(),
     clock: clockInfo(),
   };
 }
@@ -995,6 +995,14 @@ function attemptsCountToday() {
   for (const n of STATE.roster) out[n] = attempts(STATE.activeDay, n).length;
   return out;
 }
+function submittedAtToday() {
+  const out = {};
+  for (const n of STATE.roster) {
+    const list = attempts(STATE.activeDay, n);
+    if (list.length) out[n] = list[list.length - 1].at;
+  }
+  return out;
+}
 
 /* ---------------- CSV export ---------------- */
 function csvEscape(v) {
@@ -1290,7 +1298,7 @@ async function handleAPI(req, res, url) {
       return send({ ok: true, backup: st, cloud, manual, restored,
         activeDay: STATE.activeDay, clock: clockInfo(), roster: STATE.roster,
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
-        starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), online: onlineNames() });
+        starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), submittedAtToday: submittedAtToday(), online: onlineNames() });
     }
 
     if (route === '/api/admin' && req.method === 'POST') {
@@ -1354,7 +1362,7 @@ async function handleAPI(req, res, url) {
           ok: true, activeDay: STATE.activeDay, clock: clockInfo(), roster: STATE.roster,
           boardMode: STATE.boardMode, brain: STATE.graderBrain,
           leaderboard: computeFullRows(), spotlights: computeSpotlights(),
-          starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(),
+          starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), submittedAtToday: submittedAtToday(),
           users: usersForConsole(), createdUser: created,
         });
       } else if (a === 'removeStudent') {
@@ -1373,7 +1381,7 @@ async function handleAPI(req, res, url) {
           ok: true, activeDay: STATE.activeDay, clock: clockInfo(), roster: STATE.roster,
           boardMode: STATE.boardMode, brain: STATE.graderBrain,
           leaderboard: computeFullRows(), spotlights: computeSpotlights(),
-          starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(),
+          starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), submittedAtToday: submittedAtToday(),
           users: usersForConsole(), newPassword: user.password,
         });
       } else if (a === 'setVision') {
@@ -1441,7 +1449,7 @@ async function handleAPI(req, res, url) {
         ok: true, activeDay: STATE.activeDay, clock: clockInfo(), roster: STATE.roster,
         boardMode: STATE.boardMode, brain: STATE.graderBrain, vision: STATE.vision !== false,
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
-        starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(),
+        starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), submittedAtToday: submittedAtToday(),
         online: onlineNames(),
         users: usersForConsole(),
       });

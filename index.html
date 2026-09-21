@@ -576,7 +576,7 @@
         <div class="card">
           <h3><svg class="ic"><use href="#i-clock"/></svg> Day <span id="startTrackerDay"></span> — who started when</h3>
           <div style="overflow-x:auto;"><table class="lb" id="startTrackerTable"><tbody></tbody></table></div>
-          <p class="faint" style="margin-top:var(--s3);">Elapsed updates every second. A student who hasn't signed in yet shows as "not started".</p>
+          <p class="faint" style="margin-top:var(--s3);">"Time in" counts from start to hand-in — once a student submits, their time freezes and their status shows on-time or minutes late. Students still working tick up live; the clock — not the timer — decides whose work is late.</p>
         </div>
       </section>
 
@@ -1488,29 +1488,51 @@ function fmtElapsed(ms){
 }
 function renderStartTracker(){
   const starts = (lastAdmin && lastAdmin.starts) || {};
-  const attempts = (lastAdmin && lastAdmin.attemptsToday) || {};
+  const submittedAt = (lastAdmin && lastAdmin.submittedAtToday) || {};
   const online = (lastAdmin && lastAdmin.online) || (BOOT && BOOT.online) || [];
   $('startTrackerDay').textContent = BOOT.activeDay;
   const day = BOOT.days[BOOT.activeDay-1];
+  const endsAt = BOOT.clock && BOOT.clock.endsAt;
   const tbody = $('startTrackerTable').querySelector('tbody');
   if(!BOOT.roster.length){ tbody.innerHTML = '<tr><td class="muted">No students on the roster yet.</td></tr>'; return; }
   let head = `<tr><th>Student</th><th>Logged in</th><th>Started</th><th>Time in</th><th>Day limit</th><th>Status</th></tr>`;
   tbody.innerHTML = head + BOOT.roster.map(n=>{
     const st = starts[n];
+    const sub = submittedAt[n];
     const isOn = online.includes(n);
-    const sub = attempts[n] ? 'submitted' : 'not submitted';
-    const status = st ? sub : 'not started yet';
-    const over = st && day && (Date.now()-st) > day.timeLimitMin*60000;
+    // a submitted student's "time in" froze when they handed in
+    const frozen = sub ? (sub - st) : null;
+    const dayLimitMs = day ? day.timeLimitMin*60000 : 0;
+    const minsLate = (sub && endsAt) ? Math.max(0, Math.ceil((sub - endsAt)/60000)) : 0;
+    let status, statusCls = 'faint';
+    if(sub && st != null){
+      status = minsLate > 0 ? `submitted · ${minsLate} min late` : 'submitted · on time';
+      statusCls = minsLate > 0 ? 'warn' : 'ok';
+    } else if(st != null){
+      // still working — flag only if past the day limit
+      const over = (Date.now() - st) > dayLimitMs;
+      if(over){ status = 'working · over limit'; statusCls = 'warn'; }
+      else status = 'working';
+    } else {
+      status = 'not started yet';
+    }
     const loginCell = isOn
       ? '<span class="alert ok" style="margin:0;padding:2px 10px;white-space:nowrap;">online</span>'
       : '<span class="faint">signed out</span>';
+    // the "time in" cell: frozen for submitted students, live otherwise
+    const timeCell = sub && st != null
+      ? `<td style="font-weight:700;color:${frozen>dayLimitMs?'var(--red)':'var(--gold-strong)'}">${fmtElapsed(frozen)}</td>`
+      : `<td class="elapsed" data-from="${st||''}" style="font-weight:700;color:var(--gold-strong)">${st?fmtElapsed(Date.now()-st):'<span class="faint">—</span>'}</td>`;
+    const statusEl = statusCls==='ok' || statusCls==='warn'
+      ? `<span class="alert ${statusCls}" style="margin:0;padding:2px 10px;white-space:nowrap;">${status}</span>`
+      : `<span class="faint">${status}</span>`;
     return `<tr class="startrow">
       <td><b>${esc(n)}</b></td>
       <td>${loginCell}</td>
       <td>${st?fmtClockTime(st):'<span class="faint">—</span>'}</td>
-      <td class="elapsed" data-from="${st||''}" style="font-weight:700;color:${over?'var(--red)':'var(--gold-strong)'}">${st?fmtElapsed(Date.now()-st):'<span class="faint">—</span>'}</td>
+      ${timeCell}
       <td class="faint">${day?day.timeLimitMin+' min':'—'}</td>
-      <td>${status==='submitted'?'<span class="alert ok" style="margin:0;padding:2px 10px;">'+status+'</span>':'<span class="faint">'+status+'</span>'}${over?' <span class="alert warn" style="margin:0;padding:2px 10px;">over limit</span>':''}</td>
+      <td>${statusEl}</td>
     </tr>`;
   }).join('');
 }
@@ -1556,7 +1578,7 @@ async function adminAction(body){
   if(r.vision !== undefined) BOOT.vision = r.vision;
   if(r.online) BOOT.online = r.online;
   if(r.starts !== undefined) lastAdmin = lastAdmin || {};
-  if(lastAdmin){ lastAdmin.starts = r.starts; lastAdmin.attemptsToday = r.attemptsToday; lastAdmin.online = r.online; }
+  if(lastAdmin){ lastAdmin.starts = r.starts; lastAdmin.attemptsToday = r.attemptsToday; lastAdmin.submittedAtToday = r.submittedAtToday; lastAdmin.online = r.online; }
   BOOT.board = undefined;
   renderAll();
   return r;
