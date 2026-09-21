@@ -540,7 +540,9 @@
               <button class="btn" id="startClockBtn"><svg class="ic"><use href="#i-play"/></svg> Start clock</button>
               <button class="btn ghost" id="closeDayBtn"><svg class="ic"><use href="#i-stop"/></svg> Close day</button>
               <button class="btn ghost" id="reopenBtn"><svg class="ic"><use href="#i-refresh"/></svg> Reopen</button>
+              <button class="btn ghost" id="resetTimerBtn"><svg class="ic"><use href="#i-x"/></svg> Stop &amp; reset timer</button>
             </div>
+            <p class="faint" style="margin-top:var(--s2);">Stop &amp; reset clears the clock back to idle <b>and</b> wipes today's “you started at” stamps so everyone restarts from zero.</p>
           </div>
           <div class="card">
             <h3><svg class="ic"><use href="#i-brain"/></svg> Grading brain</h3>
@@ -1549,6 +1551,10 @@ $('startClockBtn').addEventListener('click', async ()=>{
 });
 $('closeDayBtn').addEventListener('click', async ()=>{
   try{ lastAdmin = await adminAction({action:'closeDay'}); toast('Day closed — submissions locked.','ok'); }catch(e){ toast(e.message,'err'); }
+});
+$('resetTimerBtn').addEventListener('click', async ()=>{
+  if(!confirm('Stop the clock and reset today\'s start times for everyone? This gives the class a fresh, untimed start.')) return;
+  try{ lastAdmin = await adminAction({action:'resetTimer'}); toast('Timer stopped and reset — everyone starts fresh.','ok'); }catch(e){ toast(e.message,'err'); }
 });
 $('reopenBtn').addEventListener('click', async ()=>{
   try{ lastAdmin = await adminAction({action:'reopenDay'}); toast('Reopened with a 10-minute late window.','ok'); }catch(e){ toast(e.message,'err'); }

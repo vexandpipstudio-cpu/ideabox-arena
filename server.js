@@ -924,6 +924,11 @@ async function handleAPI(req, res, url) {
         STATE.clock.status = 'running';
         STATE.clock.endsAt = Math.max(STATE.clock.endsAt || 0, Date.now() + 10 * 60000);
         saveState();
+      } else if (a === 'resetTimer') {
+        // stop the clock AND clear today's per-student start stamps (the "you started at" timer)
+        STATE.clock = { status: 'idle', startedAt: null, durationMin: null, endsAt: null };
+        STATE.starts[STATE.activeDay] = {};
+        saveState();
       } else if (a === 'addStudent') {
         const name = String(body.name || '').trim();
         if (!name) return send({ ok: false, error: 'BAD_NAME' }, 400);
