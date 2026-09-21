@@ -189,6 +189,7 @@ async function bootAutoRestore() {
     const diskAttempts = Object.values(STATE.submissions || {}).flatMap(Object.values).reduce((n, l) => n + l.length, 0);
     const file = await ghRequest('GET', BACKUP.path + '?ref=' + encodeURIComponent(BACKUP.branch));
     if (!file || !file.content) return;
+    try { BACKUP_META.sha = file.sha || null; } catch (_) {}
     const j = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
     const cloud = j.state || j;
     const cloudAttempts = Object.values(cloud.submissions || {}).flatMap(Object.values).reduce((n, l) => n + l.length, 0);
@@ -380,21 +381,36 @@ function snapshotsPayload() {
 }
 function backupFilename() {
   const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}Z.json`;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}${String(d.getUTCSeconds()).padStart(2, '0')}Z.json`;
 }
-/* push one snapshot (fast path: blind upsert of the latest file) */
+/* GET a file's current sha (null if absent) — Contents API needs the sha to UPDATE */
+async function ghGetSha(pathName) {
+  try {
+    const f = await ghRequest('GET', pathName + '?ref=' + encodeURIComponent(BACKUP.branch));
+    return (f && f.sha) || null;
+  } catch (e) {
+    if (e.status === 404) return null;
+    throw e;
+  }
+}
+/* push one snapshot (upsert of the latest file; create if absent, update with sha if present) */
 async function backupPush() {
   if (!BACKUP.token || !BACKUP.repo) return { ok: false, reason: 'not configured' };
   try {
     const j = snapshotsPayload();
-    await ghRequest('PUT', BACKUP.path, {
+    let sha = BACKUP_META.sha || null;
+    if (!sha) { try { sha = await ghGetSha(BACKUP.path); } catch (_) { sha = null; } }
+    const res = await ghRequest('PUT', BACKUP.path, {
       message: `Arena snapshot ${new Date().toISOString()}`,
       branch: BACKUP.branch,
+      ...(sha ? { sha } : {}),
       content: b64(JSON.stringify(j)),
     });
+    // remember the sha of the file we just wrote for the next update
+    try { if (res && res.content && res.content.sha) BACKUP_META.sha = res.content.sha; } catch (_) {}
     BACKUP_META.on = true; BACKUP_META.lastAt = Date.now(); BACKUP_META.cloudAt = Date.now();
     BACKUP_META.lastError = '';
-    // cheap history copy (best-effort, only if history dir enabled)
+    // cheap history copy (best-effort, unique by timestamp)
     if (BACKUP.historyDir) {
       try {
         await ghRequest('PUT', `${BACKUP.historyDir}/${backupFilename()}`, {
@@ -407,6 +423,7 @@ async function backupPush() {
     return { ok: true, at: BACKUP_META.lastAt };
   } catch (e) {
     BACKUP_META.lastError = e.message;
+    BACKUP_META.sha = null; // force a fresh sha lookup next push (avoid 409 loops)
     wsBroadcast({ t: 'backupStatus', backup: backupStatus(), serverTime: Date.now() });
     return { ok: false, reason: e.message };
   }
@@ -443,6 +460,7 @@ async function backupRestoreCloud() {
   if (!BACKUP.token || !BACKUP.repo) { const e = new Error('Backup is not configured (BACKUP_GITHUB_TOKEN + BACKUP_REPO).'); e.code = 'NO_BACKUP'; throw e; }
   const file = await ghRequest('GET', BACKUP.path + '?ref=' + encodeURIComponent(BACKUP.branch));
   if (!file || !file.content) throw new Error('No backup snapshot found in the cloud repo.');
+  try { BACKUP_META.sha = file.sha || null; } catch (_) {}
   let j;
   try { j = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8')); } catch (_) { throw new Error('Backup snapshot is corrupted.'); }
   const st = j.state || j;
