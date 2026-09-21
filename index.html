@@ -683,7 +683,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes.</footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r14 · tracker freezes at hand-in</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1223,12 +1223,14 @@ function renderStudent(){
   $('businessOut').innerHTML = `Day ${d.day} · <b style="color:var(--text)">${esc(info.business||'—')}</b>
     ${studentDay!==BOOT.activeDay?'<br><span class="faint">Not the active day — submissions are closed for it.</span>':''}`;
 
-  // your own start time for the active day
+  // your own start time for the active day — freezes the moment you hand in
   if(studentDay===BOOT.activeDay && me.startedAt){
-    const over = me.startedAt && (Date.now()-me.startedAt) > d.timeLimitMin*60000;
-    $('myStartOut').innerHTML = `<div class="alert ${over?'warn':'ok'}" style="margin:0;">
+    const mySub = (me.submittedAt) || null;
+    const elapsed = mySub ? (mySub - me.startedAt) : (Date.now() - me.startedAt);
+    const over = elapsed > d.timeLimitMin*60000;
+    $('myStartOut').innerHTML = `<div class="alert ${over?'warn':'ok'}" style="margin:0;" id="myStartOutSel">
       ${icon('clock')} You started at <b>${fmtClockTime(me.startedAt)}</b> —
-      <b id="myStartElapsed">${fmtElapsed(Date.now()-me.startedAt)}</b> in. Day limit: ${d.timeLimitMin} min.</div>`;
+      <b class="myStartElapsed" data-from="${me.startedAt}" data-frozen="${mySub||''}">${fmtElapsed(elapsed)}</b> in. Day limit: ${d.timeLimitMin} min.${mySub?' <span style="opacity:.75">· handed in at ' + fmtClockTime(mySub) + '</span>':''}</div>`;
   } else {
     $('myStartOut').innerHTML = '';
   }
@@ -1537,14 +1539,18 @@ function renderStartTracker(){
   }).join('');
 }
 function tickElapsed(){
+  // generic live els (tracker rows for students still working)
   document.querySelectorAll('.elapsed[data-from]').forEach(el=>{
     const from = el.dataset.from;
     if(!from) return;
     el.textContent = fmtElapsed(Date.now()-parseInt(from,10));
   });
-  if(ME && window.ME_DATA && window.ME_DATA.startedAt && $('myStartElapsed')){
-    $('myStartElapsed').textContent = fmtElapsed(Date.now()-window.ME_DATA.startedAt);
-  }
+  // the student's own "you started at" — live until hand-in, frozen after
+  document.querySelectorAll('.myStartElapsed[data-from]').forEach(el=>{
+    const from = parseInt(el.dataset.from,10);
+    const frozen = el.dataset.frozen ? parseInt(el.dataset.frozen,10) : null;
+    el.textContent = fmtElapsed((frozen || Date.now()) - from);
+  });
 }
 function renderOverrideInputs(){
   $('overrideScores').innerHTML = CATS.map(k=>`<div class="field"><label for="ov_${k}">${CAT_LABEL[k]}</label><input type="number" min="0" max="10" id="ov_${k}" placeholder="0–10"></div>`).join('');

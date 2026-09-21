@@ -1079,7 +1079,7 @@ function sendFile(res, absPath) {
   let st; try { st = fs.statSync(absPath); } catch { res.writeHead(404); res.end('Not found'); return; }
   if (!st.isFile()) { res.writeHead(404); res.end('Not found'); return; }
   const ext = path.extname(absPath).toLowerCase();
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-store' : 'no-cache' });
   fs.createReadStream(absPath).pipe(res);
 }
 function readBody(req) {
@@ -1180,6 +1180,8 @@ async function handleAPI(req, res, url) {
         ok: true, name, codename: STATE.codenames[name] || '', days,
         progress: studentProgress(name),
         startedAt: (STATE.starts[STATE.activeDay] || {})[name] || null,
+        submittedAt: attempts(STATE.activeDay, name).length
+          ? attempts(STATE.activeDay, name)[attempts(STATE.activeDay, name).length - 1].at : null,
         activeDay: STATE.activeDay, clock: clockInfo(), boardMode: STATE.boardMode, serverTime: Date.now(),
       });
     }
