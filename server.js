@@ -1285,9 +1285,9 @@ async function handleAPI(req, res, url) {
       if (!STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
       const sess = sessionFor(body.t);
       if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out — sign in again' }, 401);
-      if (day !== STATE.activeDay) return send({ ok: false, error: 'NOT_ACTIVE_DAY: today is Day ' + STATE.activeDay }, 400);
       const makeup = makeUpActive(day, name);
       if (!makeup) {
+        if (day !== STATE.activeDay) return send({ ok: false, error: 'DAY_CLOSED: that day is not open for submissions' }, 400);
         if (STATE.clock.status === 'idle') return send({ ok: false, error: 'CLOCK_NOT_STARTED: wait for the instructor to start the clock' }, 400);
         if (STATE.clock.status === 'closed') return send({ ok: false, error: 'DAY_CLOSED: submissions are closed' }, 400);
       }
@@ -1313,7 +1313,8 @@ async function handleAPI(req, res, url) {
       if (!STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
       const sess = sessionFor(body.t);
       if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out — sign in again' }, 401);
-      if (day !== STATE.activeDay) return send({ ok: false, error: 'NOT_ACTIVE_DAY' }, 400);
+      const makeup = makeUpActive(day, name);
+      if (!makeup && day !== STATE.activeDay) return send({ ok: false, error: 'DAY_CLOSED: that day is not open' }, 400);
       const result = await selfCheckSubmission(day, name);
       return send({ ok: true, result });
     }

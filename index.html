@@ -709,7 +709,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r20 · make-up countdown + consoles + live student</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r21 · make-up submissions now allowed on closed days across the week</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1384,8 +1384,9 @@ function renderStudent(){
   const d = BOOT.days[studentDay-1];
   const info = me.days[studentDay] || {};
   $('studentMission').innerHTML = briefHTML(d).replace('your assigned business', `<b style="color:var(--gold-strong)">${esc(info.business||'your assigned business')}</b>`);
+  const mkNow = (me.makeup && me.makeup[studentDay]) || null;
   $('businessOut').innerHTML = `Day ${d.day} · <b style="color:var(--text)">${esc(info.business||'—')}</b>
-    ${studentDay!==BOOT.activeDay?'<br><span class="faint">Not the active day — submissions are closed for it.</span>':''}`;
+    ${mkNow?`<br><span style="color:var(--green);font-weight:600;">Make-up window open${mkNow.expiresAt?' · submit before '+new Date(mkNow.expiresAt).toLocaleTimeString():''} — you can submit this day.</span>`:(studentDay!==BOOT.activeDay?'<br><span class="faint">Not the active day — submissions are closed for it.</span>':'')}`;
 
   // your own start time for the active day — freezes the moment you hand in
   if(studentDay===BOOT.activeDay && me.startedAt){
