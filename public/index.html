@@ -709,7 +709,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r19 · make-up countdown + OPEN day cards</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r20 · make-up countdown + consoles + live student</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1051,7 +1051,29 @@ function renderClocks(){
   else if(c.status==='closed') txt += 'closed'; else txt += 'clock idle';
   $('headClockText').textContent = txt;
 }
-function startClockTicker(){ if(clockTimer) clearInterval(clockTimer); clockTimer = setInterval(()=>{ renderClocks(); tickElapsed(); }, 1000); }
+function startClockTicker(){ if(clockTimer) clearInterval(clockTimer); clockTimer = setInterval(()=>{ renderClocks(); tickElapsed(); tickAdminMakeup(); }, 1000); }
+
+/* live countdowns for open make-up windows on the instructor console */
+function tickAdminMakeup(){
+  const now = Date.now();
+  // status list rows
+  document.querySelectorAll('.mk-cd[data-cd]').forEach(el=>{
+    const end = parseInt(el.dataset.cd,10);
+    const left = end - now;
+    if(left <= 0){ el.textContent = 'EXPIRED'; el.style.color = 'var(--red)'; return; }
+    el.textContent = fmtMS(left) + ' left';
+    if(left < 5*60000) el.style.color = 'var(--red)';
+  });
+  // student row badges
+  document.querySelectorAll('.win-badge[data-win-exp]').forEach(el=>{
+    const end = parseInt(el.dataset.winExp,10);
+    if(!end) return;
+    const left = end - now;
+    const cd = el.querySelector('.win-cd'); if(!cd) return;
+    if(left <= 0){ cd.textContent = 'expired'; el.style.background = 'rgba(255,92,108,.15);'; return; }
+    cd.textContent = left < 5*60000 ? '⚠ '+fmtMS(left)+' left' : fmtMS(left)+' left';
+  });
+}
 
 /* ---------- board ---------- */
 function badgeHTML(b, pop){
@@ -1767,7 +1789,7 @@ function renderMakeupControls(){
         const submitted = (lastAdmin && lastAdmin.attemptsToday && n in (lastAdmin.submittedAtToday||{}) && (lastAdmin.attemptsToday[n]||0)>0);
         const checked = mk ? 'checked' : '';
         const badge = mk
-          ? `<span class="pill ${mk.excuseTime?'green':'gold'}" style="margin-left:auto;font-size:10px;padding:2px 8px;">window open${mk.expiresAt?' · till '+new Date(mk.expiresAt).toLocaleTimeString():''}</span>`
+          ? `<span class="pill ${mk.excuseTime?'green':'gold'} win-badge" data-win-exp="${mk.expiresAt||''}" style="margin-left:auto;font-size:10px;padding:2px 8px;">window open${mk.expiresAt?' · <b class="win-cd">…</b>':''}</span>`
           : (submitted ? `<span class="pill blue" style="margin-left:auto;font-size:10px;padding:2px 8px;">already submitted</span>` : '');
         return `<label class="studentrow" style="cursor:pointer;gap:10px;">
           <input type="checkbox" class="mkchk" data-n="${esc(n)}" ${checked}>
@@ -1784,7 +1806,7 @@ function renderMakeupStatus(){
   const rows = [];
   for(const [d, bySt] of Object.entries(makeup)){
     for(const [n, mk] of Object.entries(bySt)){
-      rows.push(`<div class="studentrow"><span><b>${esc(n)}</b> · Day ${d}</span>${mk.excuseTime?'<span class="pill green" style="font-size:10px;padding:2px 8px;">time excused</span>':'<span class="pill gold" style="font-size:10px;padding:2px 8px;">time counts</span>'}${mk.expiresAt?`<span class="faint" style="margin-left:auto;">till ${new Date(mk.expiresAt).toLocaleTimeString()}</span>`:'<span class="faint" style="margin-left:auto;">open-ended</span>'}</div>`);
+      rows.push(`<div class="studentrow"><span><b>${esc(n)}</b> · Day ${d}</span>${mk.excuseTime?'<span class="pill green" style="font-size:10px;padding:2px 8px;">time excused</span>':'<span class="pill gold" style="font-size:10px;padding:2px 8px;">time counts</span>'}${mk.expiresAt?`<span class="mk-cd" data-cd="${mk.expiresAt}" style="margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums;color:var(--green);">till ${new Date(mk.expiresAt).toLocaleTimeString()} — …</span>`:'<span class="faint" style="margin-left:auto;">open-ended</span>'}</div>`);
     }
   }
   el.innerHTML = rows.length
