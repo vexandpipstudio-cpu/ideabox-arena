@@ -1194,7 +1194,7 @@ async function handleAPI(req, res, url) {
       return send({
         ok: true, role: user.role, name: user.name, token,
         ...(user.role === 'instructor' ? { pin: CFG.INSTRUCTOR_PIN } : {}),
-        startedAt: user.role === 'student' ? STATE.starts[day][user.name] : null,
+        startedAt: user.role === 'student' ? ((STATE.starts[day] || {})[user.name] || null) : null,
       });
     }
 
