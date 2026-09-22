@@ -161,6 +161,7 @@ function freshState() {
     submissions: {},   // { [day]: { [student]: [ {at, text, links, images[]} ] } }
     grades: {},        // { [day]: { [student]: {...} } }
     selfChecks: {},    // { [day]: { [student]: {at, result} } }
+    makeup: {},        // { [day]: { [student]: {openedAt, expiresAt|null, excuseTime} } } — late-comer windows
   };
 }
 let STATE = freshState();
@@ -505,6 +506,7 @@ function applyStateSnapshot(s) {
   if (s.submissions && typeof s.submissions === 'object') STATE.submissions = s.submissions;
   if (s.grades && typeof s.grades === 'object') STATE.grades = s.grades;
   if (s.selfChecks && typeof s.selfChecks === 'object') STATE.selfChecks = s.selfChecks;
+  if (s.makeup && typeof s.makeup === 'object') STATE.makeup = s.makeup;
   saveState();
 }
 
@@ -594,6 +596,20 @@ function timeScore(minsLate) {
   if (minsLate <= 30) return 5;
   if (minsLate <= 60) return 3;
   return 1;
+}
+/* ---------------- make-up windows (latecomers submit a closed day) ---------------- */
+function makeUpInfo(day, name) {
+  const d = STATE.makeup[day] || {};
+  return d[name] || null;
+}
+function makeUpActive(day, name) {
+  const m = makeUpInfo(day, name);
+  if (!m) return false;
+  if (m.expiresAt && Date.now() > m.expiresAt) return false; // window lapsed
+  return true;
+}
+function makeUpWipe(day) {                       // clearing a day closes its windows
+  if (STATE.makeup[day]) delete STATE.makeup[day];
 }
 function publicDays() {
   return DAYS.days.map((d) => ({
@@ -900,14 +916,18 @@ async function gradeSubmission(day, student, brainOverride) {
     if (brainOverride) STATE.graderBrain = savedBrain;
   }
   const j = extractJSON(result.content);
-  const late = minutesLate(day, last.at);
+  // an excuse is decided at submission time and stamped on the attempt itself,
+  // so it survives clearing the window and later re-grading.
+  const excused = !!last.excused;
+  const rawLate = minutesLate(day, last.at);
+  const late = excused ? 0 : rawLate;
   const scores = {
     goal: clampScore(j.goal),
     craft: clampScore(j.craft),
     creativity: clampScore(j.creativity),
     technical: clampScore(j.technical),
     process: clampScore(j.process),
-    time: timeScore(late), // server-computed, never AI
+    time: timeScore(late), // server-computed, never AI (excused for make-ups => 10)
   };
   const grade = {
     student,
@@ -922,6 +942,8 @@ async function gradeSubmission(day, student, brainOverride) {
     minutesLate: late,
     submittedAt: last.at,
     attempt: list.length,
+    makeup: !!last.makeup,  // submitted under a make-up window
+    excused,                // time waived (make-up, excuseTime on) — Time = 10, no lateness
     source: 'ai',
     provider: result.provider,
     model: result.model,
@@ -1181,12 +1203,20 @@ async function handleAPI(req, res, url) {
           selfCheck: (STATE.selfChecks[d] && STATE.selfChecks[d][name]) || null,
         };
       }
+      // make-up windows: { [day]: {expiresAt, excuseTime} } for this student
+      const myMakeup = {};
+      for (let d = 1; d <= DAYS.days.length; d++) {
+        const mk = makeUpActive(d, name);
+        if (mk) myMakeup[d] = { expiresAt: (STATE.makeup[d] && STATE.makeup[d][name] && STATE.makeup[d][name].expiresAt) || null,
+                                excuseTime: !!(STATE.makeup[d] && STATE.makeup[d][name] && STATE.makeup[d][name].excuseTime) };
+      }
       return send({
         ok: true, name, codename: STATE.codenames[name] || '', days,
         progress: studentProgress(name),
         startedAt: (STATE.starts[STATE.activeDay] || {})[name] || null,
         submittedAt: attempts(STATE.activeDay, name).length
           ? attempts(STATE.activeDay, name)[attempts(STATE.activeDay, name).length - 1].at : null,
+        makeup: myMakeup,
         activeDay: STATE.activeDay, clock: clockInfo(), boardMode: STATE.boardMode, serverTime: Date.now(),
       });
     }
@@ -1235,8 +1265,11 @@ async function handleAPI(req, res, url) {
       const day = parseInt(body.day, 10);
       if (!STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
       if (day !== STATE.activeDay) return send({ ok: false, error: 'NOT_ACTIVE_DAY: today is Day ' + STATE.activeDay }, 400);
-      if (STATE.clock.status === 'idle') return send({ ok: false, error: 'CLOCK_NOT_STARTED: wait for the instructor to start the clock' }, 400);
-      if (STATE.clock.status === 'closed') return send({ ok: false, error: 'DAY_CLOSED: submissions are closed' }, 400);
+      const makeup = makeUpActive(day, name);
+      if (!makeup) {
+        if (STATE.clock.status === 'idle') return send({ ok: false, error: 'CLOCK_NOT_STARTED: wait for the instructor to start the clock' }, 400);
+        if (STATE.clock.status === 'closed') return send({ ok: false, error: 'DAY_CLOSED: submissions are closed' }, 400);
+      }
       const text = String(body.text || '').trim();
       const links = (Array.isArray(body.links) ? body.links : []).map(String).filter(Boolean).slice(0, 10);
       if (!text && !links.length) return send({ ok: false, error: 'EMPTY_SUBMISSION: paste your work or add a link' }, 400);
@@ -1244,10 +1277,13 @@ async function handleAPI(req, res, url) {
       const at = Date.now();
       STATE.submissions[day] = STATE.submissions[day] || {};
       STATE.submissions[day][name] = STATE.submissions[day][name] || [];
-      STATE.submissions[day][name].push({ at, text, links, images });
+      const mk = makeUpInfo(day, name);
+      // stamp the excuse ON the attempt so it survives window clearing / re-grading
+      STATE.submissions[day][name].push({ at, text, links, images, makeup: !!makeup, excused: !!(mk && mk.excuseTime) });
       saveState();
       wsBroadcast({ t: 'submit', day, student: name, n: STATE.submissions[day][name].length, serverTime: Date.now() });
-      return send({ ok: true, attempt: STATE.submissions[day][name].length, minutesLate: minutesLate(day, at), images });
+      const late = (mk && mk.excuseTime) ? 0 : minutesLate(day, at);
+      return send({ ok: true, attempt: STATE.submissions[day][name].length, minutesLate: late, makeup: !!makeup, excused: !!(mk && mk.excuseTime), images });
     }
 
     if (route === '/api/selfcheck' && req.method === 'POST') {
@@ -1344,6 +1380,35 @@ async function handleAPI(req, res, url) {
         STATE.starts[STATE.activeDay] = {};
         saveState();
         wsBroadcast({ t: 'clock', clock: clockInfo(), starts: {}, serverTime: Date.now() });
+      } else if (a === 'openMakeup') {
+        // open a late-comer window on a (usually closed) day for specific students,
+        // without touching the class clock or re-running finished students.
+        const day = parseInt(body.day, 10);
+        if (!DAYS.days[day - 1]) return send({ ok: false, error: 'BAD_DAY' }, 400);
+        const raw = Array.isArray(body.students) ? body.students.map(String)
+          : (body.students === 'nonsubmitted'
+              ? STATE.roster.filter((n) => !attempts(day, n).length)
+              : STATE.roster.filter((n) => attempts(day, n).length === 0));
+        const names = raw.filter((n) => STATE.roster.includes(n));
+        if (!names.length) return send({ ok: false, error: 'NO_STUDENTS_SELECTED' }, 400);
+        const minutes = parseInt(body.minutes, 10);
+        const expiresAt = minutes > 0 ? Date.now() + minutes * 60000 : null; // null = open until cleared
+        const excuseTime = !!body.excuseTime;
+        STATE.makeup[day] = STATE.makeup[day] || {};
+        for (const n of names) STATE.makeup[day][n] = { openedAt: Date.now(), expiresAt, excuseTime };
+        saveState();
+        wsBroadcast({ t: 'makeup', day, students: names, serverTime: Date.now() });
+      } else if (a === 'clearMakeup') {
+        // close make-up windows: 'all' clears every day; 'day' clears the given day;
+        // 'student' clears one student on the given day.
+        if (body.target === 'all') STATE.makeup = {};
+        else if (body.target === 'day') { const day = parseInt(body.day, 10); if (day && STATE.makeup[day]) delete STATE.makeup[day]; }
+        else if (body.target === 'student') {
+          const day = parseInt(body.day, 10); const name = String(body.name || '').trim();
+          if (day && name && STATE.makeup[day]) { delete STATE.makeup[day][name]; if (!Object.keys(STATE.makeup[day]).length) delete STATE.makeup[day]; }
+        }
+        saveState();
+        wsBroadcast({ t: 'makeup', day: body.day, serverTime: Date.now() });
       } else if (a === 'restoreState') {
         // SAFE RESTORE — re-apply a state snapshot (used to carry student work across a redeploy).
         const s = (body && body.state) || null;
@@ -1418,7 +1483,8 @@ async function handleAPI(req, res, url) {
         const list = attempts(day, name);
         if (!list.length) return send({ ok: false, error: 'NO_SUBMISSION' }, 400);
         const last = list[list.length - 1];
-        const late = minutesLate(day, last.at);
+        const excused = !!last.excused;
+        const late = excused ? 0 : minutesLate(day, last.at);
         const scores = {
           goal: clampScore(s.goal), craft: clampScore(s.craft), creativity: clampScore(s.creativity),
           technical: clampScore(s.technical), process: clampScore(s.process),
@@ -1431,6 +1497,7 @@ async function handleAPI(req, res, url) {
           student: name, day, business: assignedBusiness(day, name), scores,
           total: CATEGORY_KEYS.reduce((t, k) => t + scores[k], 0),
           minutesLate: late, submittedAt: last.at, attempt: list.length,
+          makeup: !!last.makeup, excused,
           source: 'manual', provider: 'instructor', model: 'instructor',
           violations: Array.isArray(prev.violations) ? prev.violations : [],
           strengths: Array.isArray(prev.strengths) ? prev.strengths : [],
@@ -1457,6 +1524,7 @@ async function handleAPI(req, res, url) {
         boardMode: STATE.boardMode, brain: STATE.graderBrain, vision: STATE.vision !== false,
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
         starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), submittedAtToday: submittedAtToday(),
+        makeup: STATE.makeup || {},
         online: onlineNames(),
         users: usersForConsole(),
       });

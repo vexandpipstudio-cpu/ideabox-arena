@@ -566,6 +566,21 @@
             <p class="faint" style="margin-bottom:var(--s3);">How much of the standings the class sees. Growth Mode is the kind default.</p>
             <div id="modeChoices"></div>
           </div>
+          <div class="card">
+            <h3><svg class="ic"><use href="#i-refresh"/></svg> Make-up windows</h3>
+            <p class="faint" style="margin-bottom:var(--s3);">Let a latecomer complete a <b>closed day</b> without touching the class clock or re-running anyone. Open a window per student; their Time score is excused (no late penalty) when you tick that box.</p>
+            <div class="field"><label for="makeupDaySelect">Day</label><select id="makeupDaySelect"></select></div>
+            <div class="field"><label>Students</label><div id="makeupStudentList" style="max-height:170px;overflow-y:auto;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:var(--s2);"></div></div>
+            <div class="row" style="gap:var(--s3);">
+              <div class="field grow" style="margin:0;"><label for="makeupMinutes">Window (minutes, blank = until you close it)</label><input type="number" id="makeupMinutes" min="1" max="720" placeholder="e.g. 60"></div>
+              <div class="field grow" style="margin:0;"><label class="radiochoice" style="display:flex;margin:0;padding:12px 14px;"> <input type="checkbox" id="makeupExcuse" checked> <span><b>Excuse time</b><br><span class="faint">No late penalty — they get their full Time mark.</span></span></label></div>
+            </div>
+            <div style="display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s3);">
+              <button class="btn small" id="openMakeupBtn"><svg class="ic"><use href="#i-plus"/></svg> Open window</button>
+              <button class="btn ghost small" id="clearMakeupAllBtn"><svg class="ic"><use href="#i-x"/></svg> Close all windows</button>
+            </div>
+            <div id="makeupStatus" style="margin-top:var(--s3);"></div>
+          </div>
         </div>
       </section>
 
@@ -683,7 +698,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r15 · timed-in freeze · friendly grade notes · single lateness source</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r16 · make-up windows for late submissions</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -853,6 +868,7 @@ function connectWS(){
     if(m.t === 'clock' && BOOT){ BOOT.clock = m.clock; if(m.starts !== undefined && lastAdmin) lastAdmin.starts = m.starts; if(m.online) BOOT.online = m.online; try{ renderAll(); }catch(_){} }
     else if(m.t === 'online' && BOOT){ BOOT.online = m.online; try{ renderOnline(); if(PIN && $('startTrackerTable')) renderStartTracker(); }catch(_){} }
     else if(m.t === 'submit'){ if(PIN) loadAdminData(); if(ME) refreshMe(); }
+    else if(m.t === 'makeup'){ if(PIN) loadAdminData(); if(ME) refreshMe(); }
     else if(m.t === 'gradesDone'){ if(PIN) loadAdminData(); }
     else if(m.t === 'gradeQueue' && PIN){ try{ gradeQueue = m.queue || gradeQueueSnapshot(); updateGradeProgress(); }catch(_){} }
     else if(m.t === 'grade'){
@@ -1260,10 +1276,19 @@ function renderStudent(){
       toast('New personal best — ' + last.total + '/60!', 'ok');
     }
   }
-  const allowed = studentDay===BOOT.activeDay && BOOT.clock && BOOT.clock.status==='running';
+  // can they submit this day? active-day live window, OR an instructor make-up window
+  const mk = (me.makeup && me.makeup[studentDay]) || null;
+  const allowed = mk
+    ? true
+    : (studentDay===BOOT.activeDay && BOOT.clock && BOOT.clock.status==='running');
   $('submitBtn').disabled = !allowed;
   $('selfCheckBtn').disabled = !allowed;
-  $('submitHint').innerHTML += allowed ? '' : `<div class="alert warn" style="margin-top:var(--s3);">Submissions are ${BOOT.clock?.status==='closed'?'closed':'not open yet'} for this day.</div>`;
+  if(mk){
+    const till = mk.expiresAt ? ` · open until ${new Date(mk.expiresAt).toLocaleTimeString()}` : ' · open until your instructor closes it';
+    $('submitHint').innerHTML += `<div class="alert ok" style="margin-top:var(--s3);">Make-up window open${till} · ${mk.excuseTime?'your time is excused — no late penalty':'time counts normally'}.</div>`;
+  } else if(!allowed){
+    $('submitHint').innerHTML += `<div class="alert warn" style="margin-top:var(--s3);">Submissions are ${BOOT.clock?.status==='closed'?'closed':'not open yet'} for this day.</div>`;
+  }
   if(SESSION && SESSION.role==='student') $('sideName').textContent = BOOT.codenames[ME]||ME;
 }
 function maybeCountUp(total){
@@ -1374,8 +1399,18 @@ async function doSubmit(){
   setBusy('submitBtn', true);
   try{
     const r = await api('/api/submit', {name:ME, day:studentDay, text:$('subText').value, links, images});
-    $('submitAlerts').innerHTML = `<div class="alert ok">Submitted (attempt #${r.attempt})${r.minutesLate>0?` — <b>${r.minutesLate} min late</b>`:' — on time'}. You can resubmit before the day closes; the latest counts.</div>`;
-    toast(r.minutesLate>0 ? 'Submitted — '+r.minutesLate+' min late (still counts!)' : 'Submitted — on time. Well done!', r.minutesLate>0?'warn':'ok');
+    let alertMsg, toastMsg, toastType;
+    if(r.makeup){
+      alertMsg = `<div class="alert ok">Submitted (attempt #${r.attempt}) as a make-up${r.minutesLate>0?` — <b>${r.minutesLate} min late</b>`:' — time excused'}. Your instructor will grade it.</div>`;
+      toastMsg = r.minutesLate>0 ? 'Submitted (make-up) — '+r.minutesLate+' min late' : 'Submitted (make-up) — time excused. Well done!';
+      toastType = r.minutesLate>0 ? 'warn' : 'ok';
+    } else {
+      alertMsg = `<div class="alert ok">Submitted (attempt #${r.attempt})${r.minutesLate>0?` — <b>${r.minutesLate} min late</b>`:' — on time'}. You can resubmit before the day closes; the latest counts.</div>`;
+      toastMsg = r.minutesLate>0 ? 'Submitted — '+r.minutesLate+' min late (still counts!)' : 'Submitted — on time. Well done!';
+      toastType = r.minutesLate>0 ? 'warn' : 'ok';
+    }
+    $('submitAlerts').innerHTML = alertMsg;
+    toast(toastMsg, toastType);
     pendingFiles=[]; renderFileChips(); $('subFiles').value='';
     clearDraft();
     await refreshMe();
@@ -1462,6 +1497,7 @@ function renderAdmin(){
   renderAdminTables();
   renderAccounts();
   renderStartTracker();
+  renderMakeupControls();
 }
 
 /* ---------- accounts & start tracker ---------- */
@@ -1572,6 +1608,46 @@ function tickElapsed(){
 function renderOverrideInputs(){
   $('overrideScores').innerHTML = CATS.map(k=>`<div class="field"><label for="ov_${k}">${CAT_LABEL[k]}</label><input type="number" min="0" max="10" id="ov_${k}" placeholder="0–10"></div>`).join('');
 }
+function renderMakeupControls(){
+  const daySel = $('makeupDaySelect'); if(!daySel) return;
+  const prev = daySel.value;
+  daySel.innerHTML = BOOT.days.map(d=>`<option value="${d.day}" ${d.day===BOOT.activeDay?'selected':''}>Day ${d.day} — ${d.title}</option>`).join('');
+  if(prev) daySel.value = prev;
+  const makeup = (lastAdmin && lastAdmin.makeup) || {};
+  // student checkboxes — pre-tick those with an open window on the selected day
+  const list = $('makeupStudentList');
+  const activeDay = parseInt(daySel.value, 10);
+  const dayWindows = makeup[activeDay] || {};
+  list.innerHTML = BOOT.roster.length
+    ? BOOT.roster.map(n=>{
+        const mk = dayWindows[n];
+        const submitted = (lastAdmin && lastAdmin.attemptsToday && n in (lastAdmin.submittedAtToday||{}) && (lastAdmin.attemptsToday[n]||0)>0);
+        const checked = mk ? 'checked' : '';
+        const badge = mk
+          ? `<span class="pill ${mk.excuseTime?'green':'gold'}" style="margin-left:auto;font-size:10px;padding:2px 8px;">window open${mk.expiresAt?' · till '+new Date(mk.expiresAt).toLocaleTimeString():''}</span>`
+          : (submitted ? `<span class="pill blue" style="margin-left:auto;font-size:10px;padding:2px 8px;">already submitted</span>` : '');
+        return `<label class="studentrow" style="cursor:pointer;gap:10px;">
+          <input type="checkbox" class="mkchk" data-n="${esc(n)}" ${checked}>
+          <span><b>${esc(n)}</b></span>
+          ${badge}
+        </label>`;
+      }).join('')
+    : `<div class="empty" style="padding:var(--s3);">No students on the roster yet.</div>`;
+  renderMakeupStatus();
+}
+function renderMakeupStatus(){
+  const el = $('makeupStatus'); if(!el) return;
+  const makeup = (lastAdmin && lastAdmin.makeup) || {};
+  const rows = [];
+  for(const [d, bySt] of Object.entries(makeup)){
+    for(const [n, mk] of Object.entries(bySt)){
+      rows.push(`<div class="studentrow"><span><b>${esc(n)}</b> · Day ${d}</span>${mk.excuseTime?'<span class="pill green" style="font-size:10px;padding:2px 8px;">time excused</span>':'<span class="pill gold" style="font-size:10px;padding:2px 8px;">time counts</span>'}${mk.expiresAt?`<span class="faint" style="margin-left:auto;">till ${new Date(mk.expiresAt).toLocaleTimeString()}</span>`:'<span class="faint" style="margin-left:auto;">open-ended</span>'}</div>`);
+    }
+  }
+  el.innerHTML = rows.length
+    ? `<p class="faint" style="margin-bottom:var(--s2);">Open windows:</p>` + rows.join('')
+    : `<p class="faint">No make-up windows open. Tick students above and open one.</p>`;
+}
 function renderAdminTables(){
   const full = (lastAdmin && lastAdmin.leaderboard) || null;
   const tbody = $('adminFullTable').querySelector('tbody');
@@ -1602,6 +1678,7 @@ async function adminAction(body){
   if(r.online) BOOT.online = r.online;
   if(r.starts !== undefined) lastAdmin = lastAdmin || {};
   if(lastAdmin){ lastAdmin.starts = r.starts; lastAdmin.attemptsToday = r.attemptsToday; lastAdmin.submittedAtToday = r.submittedAtToday; lastAdmin.online = r.online; }
+  if(r.makeup !== undefined) { lastAdmin = lastAdmin || {}; lastAdmin.makeup = r.makeup; }
   BOOT.board = undefined;
   renderAll();
   return r;
@@ -1723,6 +1800,25 @@ $('resetTimerBtn').addEventListener('click', async ()=>{
 });
 $('reopenBtn').addEventListener('click', async ()=>{
   try{ lastAdmin = await adminAction({action:'reopenDay'}); toast('Reopened with a 10-minute late window.','ok'); }catch(e){ toast(e.message,'err'); }
+});
+$('makeupDaySelect').addEventListener('change', ()=>renderMakeupControls());
+$('openMakeupBtn').addEventListener('click', async ()=>{
+  try{
+    const students = [...document.querySelectorAll('.mkchk:checked')].map(b=>b.dataset.n);
+    if(!students.length){ toast('Tick at least one student first.','warn'); return; }
+    const mins = $('makeupMinutes').value ? parseInt($('makeupMinutes').value,10) : 0;
+    const excuse = $('makeupExcuse').checked;
+    lastAdmin = await adminAction({action:'openMakeup', day:parseInt($('makeupDaySelect').value,10), students, minutes:mins, excuseTime:excuse});
+    toast('Make-up window open for '+students.join(', ')+(excuse?' (time excused).':' (time counts).'), 'ok');
+    renderMakeupControls();
+  }catch(e){ toast(e.message,'err'); }
+});
+$('clearMakeupAllBtn').addEventListener('click', async ()=>{
+  try{
+    lastAdmin = await adminAction({action:'clearMakeup', target:'all'});
+    toast('All make-up windows closed.','ok');
+    renderMakeupControls();
+  }catch(e){ toast(e.message,'err'); }
 });
 $('addStudentBtn').addEventListener('click', async ()=>{
   const n = $('newStudentName').value.trim(); if(!n) return;
