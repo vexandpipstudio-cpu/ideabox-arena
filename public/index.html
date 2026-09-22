@@ -445,6 +445,7 @@
       <!-- TODAY (student home) -->
       <section id="view-myspace" style="display:none;">
         <div class="clockbar" id="clockbarStudent"></div>
+        <div id="prevGradesBanner"></div>
         <div class="daystrip" id="studentDayStrip"></div>
         <div class="steps">
           <div class="card stepcard">
@@ -701,7 +702,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r17 · make-up windows · session logout · today indicator + fixed custom duration</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r18 · graded-days banner on Today page</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1250,6 +1251,41 @@ async function refreshMe(){
   if(!ME || DEMO) return;
   try{ window.ME_DATA = await api('/api/me?name='+encodeURIComponent(ME)); renderStudent(); }catch(_){}
 }
+/* Past days with grades get a tap-to-view banner so feedback is unmissable. */
+function renderPrevGradesBanner(me){
+  const el = $('prevGradesBanner'); if(!el) return;
+  const active = BOOT.activeDay;
+  const graded = [];
+  for(let d=1; d<=BOOT.days.length; d++){
+    if(d === active) continue;                       // today's grade shows under step 3
+    const g = me.days[d] && me.days[d].grade;
+    if(g) graded.push({day:d, total:g.total, title:(BOOT.days[d-1]||{}).title||('Day '+d)});
+  }
+  if(!graded.length){ el.innerHTML=''; return; }
+  const items = graded.sort((a,b)=>a.day-b.day).map(g=>{
+    const pct = Math.round(g.total/60*100);
+    const cls = g.total>=48?'ok':(g.total>=36?'warn':'err');
+    return `<button class="prevGradeChip" data-day="${g.day}" style="flex:1 1 240px;display:flex;align-items:center;gap:var(--s3);text-align:left;background:var(--raised);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);color:var(--text);cursor:pointer;">
+      <svg class="ic" style="color:var(--gold-strong);"><use href="#i-filecheck"/></svg>
+      <span style="flex:1;"><b>Day ${g.day} — ${esc(g.title)}</b><br>
+      <span style="color:${g.total>=48?'var(--green)':(g.total>=36?'var(--gold-strong)':'var(--red)')};font-weight:800;">${g.total}/60</span>
+      <span class="faint"> · ${pct}%</span> — tap to read your feedback &amp; fixes</span>
+    </button>`;
+  }).join('');
+  el.innerHTML = `<div class="alert ok" style="margin:0 0 var(--s3);padding:var(--s3) var(--s4);">
+    <b style="display:block;margin-bottom:8px;">${icon('filecheck')} Your graded days — read your feedback before today's run</b>
+    <div style="display:flex;gap:var(--s2);flex-wrap:wrap;">${items}</div>
+  </div>`;
+  el.querySelectorAll('.prevGradeChip').forEach(b=>b.addEventListener('click', ()=>{
+    const d = parseInt(b.dataset.day,10);
+    studentDay = d;
+    $('subText').value=''; $('subLinks').value=''; pendingFiles=[]; renderFileChips();
+    renderStudent();
+    // scroll to the grade card
+    const gc = $('myGradeCard'); if(gc){ gc.scrollIntoView({behavior: REDUCED?'auto':'smooth', block:'start'}); }
+  }));
+}
+
 function renderStudent(){
   const me = window.ME_DATA; if(!me) return;
   const statuses = {};
@@ -1258,6 +1294,7 @@ function renderStudent(){
     if(info && info.grade) statuses[d]='graded';
     else if(info && info.attempts && info.attempts.length) statuses[d]='submitted';
   }
+  renderPrevGradesBanner(me);
   renderBriefStrip('studentDayStrip', studentDay, (d)=>{
     saveDraft(); studentDay=d;
     $('subText').value=''; $('subLinks').value='';
