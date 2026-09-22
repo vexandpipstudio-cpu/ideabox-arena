@@ -231,6 +231,12 @@
   .catgrid .cat{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--s3) var(--s4);font-size:13px;line-height:1.6;}
   .catgrid .cat b{color:var(--gold-strong);}
 
+  /* make-up countdown */
+  .mkcd{display:flex;align-items:center;gap:var(--s3);background:linear-gradient(135deg,rgba(61,220,132,.12),rgba(61,220,132,.04));border:1px solid var(--green-deep);border-radius:var(--r-md);padding:var(--s3) var(--s4);margin:0 0 var(--s3);}
+  .mkcd .big{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--green);letter-spacing:1px;}
+  .mkcd.urgent{background:linear-gradient(135deg,rgba(255,92,108,.14),rgba(255,92,108,.04));border-color:var(--red-deep);} .mkcd.urgent .big{color:var(--red);animation:blink 1s infinite;}
+  .mkcd .btn{margin-left:auto;white-space:nowrap;}
+  .d.open{border-color:var(--green-deep);box-shadow:0 0 0 1px rgba(61,220,132,.4);}
   /* day strip */
   .daystrip{display:flex;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4);}
   .daystrip .d{flex:1 1 155px;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:var(--s3) var(--s4);cursor:pointer;min-width:150px;position:relative;transition:border-color .15s,transform .15s;}
@@ -445,6 +451,7 @@
       <!-- TODAY (student home) -->
       <section id="view-myspace" style="display:none;">
         <div class="clockbar" id="clockbarStudent"></div>
+        <div id="makeupCountdown"></div>
         <div id="prevGradesBanner"></div>
         <div class="daystrip" id="studentDayStrip"></div>
         <div class="steps">
@@ -702,7 +709,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r18 · graded-days banner on Today page</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r19 · make-up countdown + OPEN day cards</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1120,13 +1127,15 @@ function renderBoard(){
 }
 
 /* ---------- missions ---------- */
-function renderBriefStrip(containerId, current, onClick, statuses){
+function renderBriefStrip(containerId, current, onClick, statuses, makeupDays){
   const el = $(containerId);
   el.innerHTML = BOOT.days.map(d=>{
     const st = statuses && statuses[d.day];
+    const mk = makeupDays && makeupDays[d.day];
     const stat = st==='graded' ? `<span class="stat graded" title="graded">${icon('filecheck')}</span>` : st==='submitted' ? `<span class="stat" title="submitted">${icon('send')}</span>` : '';
-    return `<div class="d ${d.day===current?'active':''}" data-day="${d.day}" role="button" tabindex="0">
-      ${stat}<div class="wd">${d.weekday} · Day ${d.day}</div><div class="t">${d.title}</div><div class="tm">${icon('clock')} ${d.timeLimitMin} min</div>
+    const open = mk ? `<span class="stat" style="color:var(--green);text-shadow:0 0 8px rgba(61,220,132,.8);animation:blink 1.2s infinite;" title="make-up window open">${icon('play')}</span>` : '';
+    return `<div class="d ${d.day===current?'active':''}${mk?' open':''}" data-day="${d.day}" role="button" tabindex="0">
+      ${stat}${open}<div class="wd">${d.weekday} · Day ${d.day}</div><div class="t">${d.title}</div><div class="tm">${icon('clock')} ${d.timeLimitMin} min${mk?' · <b style="color:var(--green);">MAKE-UP OPEN</b>':''}</div>
     </div>`;
   }).join('');
   el.querySelectorAll('.d').forEach(n=>{
@@ -1286,6 +1295,51 @@ function renderPrevGradesBanner(me){
   }));
 }
 
+/* Big ticking countdown for any OPEN make-up window (works whichever day they view). */
+function renderMakeupCountdown(me){
+  const el = $('makeupCountdown'); if(!el) return;
+  const mk = me && me.makeup || {};
+  // pick the day whose window expires soonest (if any); open-ended = no countdown but still an alert
+  let soonDay = null, soonEnd = Infinity;
+  let anyOpen = false;
+  for(const [d, w] of Object.entries(mk)){
+    anyOpen = true;
+    if(w && w.expiresAt && w.expiresAt < soonEnd){ soonEnd = w.expiresAt; soonDay = parseInt(d,10); }
+  }
+  if(!anyOpen){ el.innerHTML=''; return; }
+  if(!soonDay || soonEnd === Infinity){
+    el.innerHTML = `<div class="mkcd"><div>${icon('play')} <b>Make-up window open</b><br><span class="faint">Your instructor opened it — submit when ready.${mk[Object.keys(mk)[0]] && mk[Object.keys(mk)[0]].excuseTime ? ' Time is excused (no late penalty).' : ''}</span></div></div>`;
+    return;
+  }
+  const under5 = (soonEnd - Date.now()) < 5*60000;
+  const title = (BOOT.days[soonDay-1]||{}).title || ('Day '+soonDay);
+  el.innerHTML = `<div class="mkcd ${under5?'urgent':''}" id="mkcdBox" data-end="${soonEnd}" data-day="${soonDay}">
+    <div><div class="faint" style="letter-spacing:1px;font-weight:800;">MAKE-UP RUNNING — DAY ${soonDay}${title?' · '+esc(title):''}</div>
+    <div class="big" id="mkcdTime">${fmtMS(soonEnd - Date.now())}</div>
+    <div class="faint">${mk[soonDay] && mk[soonDay].excuseTime ? 'Time is excused — no late penalty.' : 'Time counts — submit before it hits zero.'}</div></div>
+    <button class="btn small" id="mkcdGo">Go to Day ${soonDay}</button>
+  </div>`;
+  const go = $('mkcdGo');
+  if(go) go.addEventListener('click', ()=>{
+    studentDay = soonDay;
+    $('subText').value=''; $('subLinks').value=''; pendingFiles=[]; renderFileChips();
+    renderStudent();
+  });
+}
+function tickMakeupCountdown(){
+  const box = $('mkcdBox'); if(!box) return;
+  const end = parseInt(box.dataset.end,10);
+  const left = end - Date.now();
+  if(left <= 0){
+    const t = $('mkcdTime'); if(t) t.textContent = '00:00';
+    // window lapsed server-side — refresh so the banner clears and submit re-locks
+    if(ME){ refreshMe(); }
+    return;
+  }
+  const t = $('mkcdTime'); if(t) t.textContent = fmtMS(left);
+  if(left < 5*60000) box.classList.add('urgent');
+}
+
 function renderStudent(){
   const me = window.ME_DATA; if(!me) return;
   const statuses = {};
@@ -1295,12 +1349,16 @@ function renderStudent(){
     else if(info && info.attempts && info.attempts.length) statuses[d]='submitted';
   }
   renderPrevGradesBanner(me);
+  // build the set of days with an OPEN make-up window for this student
+  const mkDays = {};
+  for(let d=1; d<=BOOT.days.length; d++){ if(me.makeup && me.makeup[d]) mkDays[d] = me.makeup[d]; }
+  renderMakeupCountdown(me);
   renderBriefStrip('studentDayStrip', studentDay, (d)=>{
     saveDraft(); studentDay=d;
     $('subText').value=''; $('subLinks').value='';
     pendingFiles=[]; renderFileChips();
     renderStudent();
-  }, statuses);
+  }, statuses, mkDays);
   const d = BOOT.days[studentDay-1];
   const info = me.days[studentDay] || {};
   $('studentMission').innerHTML = briefHTML(d).replace('your assigned business', `<b style="color:var(--gold-strong)">${esc(info.business||'your assigned business')}</b>`);
@@ -1687,6 +1745,8 @@ function tickElapsed(){
     const frozen = el.dataset.frozen ? parseInt(el.dataset.frozen,10) : null;
     el.textContent = fmtElapsed((frozen || Date.now()) - from);
   });
+  // make-up window countdown
+  tickMakeupCountdown();
 }
 function renderOverrideInputs(){
   $('overrideScores').innerHTML = CATS.map(k=>`<div class="field"><label for="ov_${k}">${CAT_LABEL[k]}</label><input type="number" min="0" max="10" id="ov_${k}" placeholder="0–10"></div>`).join('');
