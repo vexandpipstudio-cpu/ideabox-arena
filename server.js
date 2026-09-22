@@ -239,6 +239,10 @@ async function gradeQueueRun() {
 /* ---------------- live presence (who is logged in RIGHT NOW) ---------------- */
 const ONLINE = {};              // { [name]: last heartbeat ms } — in memory only
 const ONLINE_TTL = 90 * 1000;   // a student counts as online for 90s after their last heartbeat
+
+/* ---------------- sessions (tokens issued at login; in-memory) ---------------- */
+const SESSIONS = new Map();     // token -> { name, role }  (a restart logs everyone out)
+function sessionFor(token) { return token ? SESSIONS.get(String(token)) : null; }
 function onlineNames() {
   const now = Date.now();
   return STATE.roster.filter((n) => ONLINE[n] && now - ONLINE[n] < ONLINE_TTL);
@@ -610,6 +614,12 @@ function makeUpActive(day, name) {
 }
 function makeUpWipe(day) {                       // clearing a day closes its windows
   if (STATE.makeup[day]) delete STATE.makeup[day];
+}
+/* which numbered day does TODAY (Lagos time) map to, by the week's weekday labels? */
+function todayDay() {
+  const wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.now() + 60 * 60 * 1000).getUTCDay()];
+  const d = DAYS.days.find((x) => String(x.weekday || '').toLowerCase() === wd.toLowerCase());
+  return d ? d.day : null;
 }
 function publicDays() {
   return DAYS.days.map((d) => ({
@@ -1158,6 +1168,7 @@ async function handleAPI(req, res, url) {
         online: onlineNames(),
         serverTime: Date.now(),
         backup: backupStatus(),
+        todayDay: todayDay(),
       });
     }
 
@@ -1178,8 +1189,10 @@ async function handleAPI(req, res, url) {
           if (!STATE.starts[day][user.name]) { STATE.starts[day][user.name] = Date.now(); saveState(); }
         }
       }
+      const token = crypto.randomBytes(16).toString('hex');
+      SESSIONS.set(token, { name: user.name, role: user.role });
       return send({
-        ok: true, role: user.role, name: user.name,
+        ok: true, role: user.role, name: user.name, token,
         ...(user.role === 'instructor' ? { pin: CFG.INSTRUCTOR_PIN } : {}),
         startedAt: user.role === 'student' ? STATE.starts[day][user.name] : null,
       });
@@ -1188,6 +1201,8 @@ async function handleAPI(req, res, url) {
     if (route === '/api/me' && req.method === 'GET') {
       const name = String(url.searchParams.get('name') || '').trim();
       if (!name || !STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
+      const sess = sessionFor(url.searchParams.get('t'));
+      if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out — sign in again' }, 401);
       ONLINE[name] = Date.now(); // heartbeat for the logged-in counter
       // record start time on first access while the clock is running
       if (STATE.clock.status === 'running') {
@@ -1223,6 +1238,8 @@ async function handleAPI(req, res, url) {
 
     if (route === '/api/heartbeat' && req.method === 'POST') {
       const name = String(body.name || '').trim();
+      const sess = sessionFor(body.t);
+      if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out' }, 401);
       const before = onlineNames().join(',');
       if (name && STATE.roster.includes(name)) ONLINE[name] = Date.now();
       const after = onlineNames().join(',');
@@ -1237,6 +1254,8 @@ async function handleAPI(req, res, url) {
 
     if (route === '/api/codename' && req.method === 'POST') {      const name = String(body.name || '').trim();
       if (!STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
+      const sess = sessionFor(body.t);
+      if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out — sign in again' }, 401);
       const code = cleanCodename(body.codename);
       if (!code) { delete STATE.codenames[name]; }
       else if (Object.values(STATE.codenames).includes(code)) return send({ ok: false, error: 'CODENAME_TAKEN: pick another' }, 400);
@@ -1264,6 +1283,8 @@ async function handleAPI(req, res, url) {
       const name = String(body.name || '').trim();
       const day = parseInt(body.day, 10);
       if (!STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
+      const sess = sessionFor(body.t);
+      if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out — sign in again' }, 401);
       if (day !== STATE.activeDay) return send({ ok: false, error: 'NOT_ACTIVE_DAY: today is Day ' + STATE.activeDay }, 400);
       const makeup = makeUpActive(day, name);
       if (!makeup) {
@@ -1290,6 +1311,8 @@ async function handleAPI(req, res, url) {
       const name = String(body.name || '').trim();
       const day = parseInt(body.day, 10);
       if (!STATE.roster.includes(name)) return send({ ok: false, error: 'UNKNOWN_STUDENT' }, 404);
+      const sess = sessionFor(body.t);
+      if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out — sign in again' }, 401);
       if (day !== STATE.activeDay) return send({ ok: false, error: 'NOT_ACTIVE_DAY' }, 400);
       const result = await selfCheckSubmission(day, name);
       return send({ ok: true, result });
@@ -1409,6 +1432,12 @@ async function handleAPI(req, res, url) {
         }
         saveState();
         wsBroadcast({ t: 'makeup', day: body.day, serverTime: Date.now() });
+      } else if (a === 'logoutAll') {
+        // end the class session: every logged-in screen returns to sign-in
+        SESSIONS.clear();
+        for (const k of Object.keys(ONLINE)) delete ONLINE[k];
+        wsBroadcast({ t: 'logout', serverTime: Date.now() });
+        wsBroadcast({ t: 'online', online: [], serverTime: Date.now() });
       } else if (a === 'restoreState') {
         // SAFE RESTORE — re-apply a state snapshot (used to carry student work across a redeploy).
         const s = (body && body.state) || null;
@@ -1525,6 +1554,7 @@ async function handleAPI(req, res, url) {
         leaderboard: computeFullRows(), spotlights: computeSpotlights(),
         starts: STATE.starts[STATE.activeDay] || {}, attemptsToday: attemptsCountToday(), submittedAtToday: submittedAtToday(),
         makeup: STATE.makeup || {},
+        todayDay: todayDay(),
         online: onlineNames(),
         users: usersForConsole(),
       });

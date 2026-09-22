@@ -541,6 +541,7 @@
       <!-- RUN THE DAY -->
       <section id="view-run" style="display:none;">
         <div class="clockbar" id="clockbarRun"></div>
+        <div id="todayNudge" style="display:none;" class="alert warn"></div>
         <p class="pagelead">Everything you touch while the class is building: which day is live, the clock, the grading brain and how much of the board the class sees.</p>
         <div class="admin-grid">
           <div class="card">
@@ -691,14 +692,16 @@
           <div style="display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s4);">
             <button class="btn ghost small" id="exportStandings"><svg class="ic"><use href="#i-download"/></svg> Standings CSV</button>
             <button class="btn ghost small" id="exportDetailed"><svg class="ic"><use href="#i-download"/></svg> Detailed CSV</button>
+            <button class="btn danger small" id="logoutAllBtn"><svg class="ic"><use href="#i-logout"/></svg> Log everyone out</button>
           </div>
+          <p class="faint" style="margin-top:var(--s2);">Log everyone out ends the session on every open screen (students and yours) and returns them to the sign-in page, with a friendly message.</p>
           <button class="btn danger small" id="resetBtn"><svg class="ic"><use href="#i-trash"/></svg> Reset the whole week</button>
           <p class="faint" style="margin-top:var(--s2);">Wipes submissions, grades and timing for the week. Login accounts are kept — the roster rebuilds itself from them.</p>
         </div>
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r16 · make-up windows for late submissions</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r17 · make-up windows · session logout · today indicator + fixed custom duration</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -721,7 +724,8 @@ const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion:
 
 let BOOT=null, DEMO=false, SESSION=null, PIN='', briefDay=1, studentDay=1;
 let clockTimer=null, lastAdmin=null, pendingFiles=[], lastAnimatedTotal=null, pbCelebrated={}, draftTimer=null, currentView='board', heartbeatTimer=null;
-let gradeQueue=null, queuePoll=null;
+let gradeQueue=null, queuePoll=null, TOKEN=null, TERMINAL_MESSAGE='';  // session token (sent on every call) + sign-out banner
+let adminDurDirty=false;  // user typed a custom duration — don't override it on re-render
 
 const NAV_ITEMS = [
   {id:'myspace',  label:'Today',       icon:'user',   roles:['student']},
@@ -824,8 +828,14 @@ function confetti(){
 
 /* ---------- api ---------- */
 async function api(path, body){
-  const res = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : undefined);
-  const j = await res.json().catch(()=>({ok:false,error:'BAD_RESPONSE'}));
+  let url = path;
+  if(TOKEN){ url += (url.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(TOKEN); }
+  let body2 = body;
+  if(TOKEN && body && typeof body === 'object'){ body2 = Object.assign({}, body, {t: TOKEN}); }
+  const res = await fetch(url, body2 ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body2)} : undefined);
+  let j;
+  try{ j = await res.json(); }catch(_){ j = {ok:false, error:'BAD_RESPONSE'}; }
+  if(!j.ok && /BAD_SESSION/i.test(String(j.error||''))){ forceLogout('Your session ended — the instructor logged everyone out. Sign in again.'); return j; }
   if(!j.ok) throw new Error(j.error || 'Request failed');
   return j;
 }
@@ -844,6 +854,7 @@ async function boot(){
   try{
     const s = JSON.parse(sessionStorage.getItem('arena-session')||'null');
     if(s){
+      if(s.token) TOKEN = s.token;
       if(s.role==='student' && BOOT.roster.includes(s.name)){ enterApp(s); return; }
       if(s.role==='instructor'){ enterApp(s); return; }
     }
@@ -876,6 +887,7 @@ function connectWS(){
       if(ME && m.student === ME) refreshMe();
     }
     else if(m.t === 'backupStatus'){ if(BOOT && m.backup) BOOT.backup = m.backup; }
+    else if(m.t === 'logout'){ forceLogout('The instructor logged everyone out — please sign in again.'); }
     else if(m.t === 'hello' || m.t === 'pong'){ /* keepalive */ }
   };
   ws.onclose = () => {
@@ -894,7 +906,8 @@ async function doLogin(){
     const res = await api('/api/login', {username, password});
     $('gateErr').innerHTML = '';
     try{ sessionStorage.setItem('arena-username', username); }catch(_){}
-    enterApp({role:res.role, name:res.name, username:username, pin:res.pin||null, startedAt:res.startedAt||null});
+    TOKEN = res.token || null;
+    enterApp({role:res.role, name:res.name, username:username, pin:res.pin||null, startedAt:res.startedAt||null, token:res.token||null});
   }catch(e){
     $('gateErr').innerHTML = `<div class="alert err">${e.message.includes('BAD_CREDENTIALS')?'Wrong username or password — ask your instructor for a reset.':esc(e.message)}</div>`;
   }finally{
@@ -903,6 +916,7 @@ async function doLogin(){
 }
 function enterApp(session){
   SESSION = session;
+  if(session.token) TOKEN = session.token;
   if(session.pin) PIN = session.pin;
   try{ sessionStorage.setItem('arena-session', JSON.stringify(session)); }catch(_){}
   $('gate').style.display='none';
@@ -960,6 +974,14 @@ async function loadAdminData(){
 }
 function signOut(){
   try{ sessionStorage.removeItem('arena-session'); }catch(_){}
+  location.reload();
+}
+function forceLogout(msg){
+  try{
+    sessionStorage.removeItem('arena-session');
+    sessionStorage.setItem('arena-logout-msg', msg || 'Your session ended — please sign in again.');
+  }catch(_){}
+  TERMINAL_MESSAGE = msg || '';
   location.reload();
 }
 
@@ -1045,7 +1067,16 @@ function renderBoard(){
   const configured = Object.values(BOOT.providers||{}).filter(p=>p.configured).length;
   $('lbMeta').textContent = BOOT.roster.length + ' students · grader: ' + BOOT.brain + (configured?' ('+configured+' brain'+(configured>1?'s':'')+' ready)':' — no brain key set');
   const side = $('sideWeekInfo');
-  if(side) side.innerHTML = `Day ${BOOT.activeDay} of ${days.length} · ${mode} mode · ${configured} brain${configured===1?'':'s'} ready`;
+  if(side){
+    let sideHtml = `Day ${BOOT.activeDay} of ${days.length} · ${mode} mode · ${configured} brain${configured===1?'':'s'} ready`;
+    const today = BOOT.todayDay;
+    if(today){
+      const todayTitle = days[today-1] ? days[today-1].title : '';
+      sideHtml += `<br><span style="color:var(--green);">Today is Day ${today}${todayTitle?' — '+todayTitle:''}</span>`;
+      if(today !== BOOT.activeDay) sideHtml += `<br><span style="color:var(--gold-strong);">(active day is Day ${BOOT.activeDay})</span>`;
+    }
+    side.innerHTML = sideHtml;
+  }
 
   const spot = BOOT.spotlights || {perDay:{}, weekly:[]};
   let wall = '';
@@ -1446,9 +1477,24 @@ function setBusy(id, busy){
 function renderAdmin(){
   if(!PIN) return;
   $('adminDaySelect').innerHTML = BOOT.days.map(d=>`<option value="${d.day}" ${d.day===BOOT.activeDay?'selected':''}>Day ${d.day} — ${d.title} (${d.timeLimitMin} min)</option>`).join('');
-  $('adminDuration').value = BOOT.days[BOOT.activeDay-1].timeLimitMin;
+  if(!adminDurDirty) $('adminDuration').value = BOOT.days[BOOT.activeDay-1].timeLimitMin;
   $('gradeDayLabel').textContent = BOOT.activeDay;
   $('detailDayLabel').textContent = BOOT.activeDay;
+  const tdn = $('todayNudge');
+  if(tdn){
+    const today = BOOT.todayDay;
+    if(today && today !== BOOT.activeDay){
+      const tt = (BOOT.days[today-1]||{}).title || '';
+      tdn.style.display='block';
+      tdn.innerHTML = `${icon('info')} <b>Today is Day ${today}${tt?' — '+tt:''}</b>, but the active day is still <b>Day ${BOOT.activeDay}</b>. To run today's project, pick Day ${today} above and start the clock.`;
+    } else if(today && today === BOOT.activeDay){
+      tdn.style.display='block';
+      tdn.className='alert ok';
+      tdn.innerHTML = `${icon('check')} Today is Day ${today}${(BOOT.days[today-1]||{}).title?' — '+(BOOT.days[today-1].title):''} — the active day matches today. Good to go.`;
+    } else {
+      tdn.style.display='none';
+    }
+  }
   $('visionToggle').checked = BOOT.vision !== false;
   $('visionToggle').closest('.radiochoice').classList.toggle('on', $('visionToggle').checked);
 
@@ -1757,6 +1803,13 @@ function renderOnline(){
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+/* ---------- show the instructor's sign-out message (if any) ---------- */
+try{
+  const _lm = sessionStorage.getItem('arena-logout-msg'); sessionStorage.removeItem('arena-logout-msg');
+  const _msg = TERMINAL_MESSAGE || _lm;
+  if(_msg){ const _el = $('gateErr'); if(_el) _el.innerHTML = '<div class="alert warn">' + esc(_msg) + '</div>'; }
+}catch(_){}
+
 /* ---------- wire up ---------- */
 $('gateLoginBtn').addEventListener('click', doLogin);
 ['gateUser','gatePass'].forEach(id=> $(id).addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); }));
@@ -1786,11 +1839,21 @@ $('submitBtn').addEventListener('click', doSubmit);
 $('selfCheckBtn').addEventListener('click', doSelfCheck);
 $('startClockBtn').addEventListener('click', async ()=>{
   try{
-    lastAdmin = await adminAction({action:'setDay', day:parseInt($('adminDaySelect').value,10)});
-    lastAdmin = await adminAction({action:'startClock', durationMin:parseInt($('adminDuration').value,10)||undefined});
-    toast('Clock started. Students can now submit.','ok');
+    // capture the chosen duration FIRST — adminAction re-renders the form and
+    // would otherwise reset the field to the day's default before we read it.
+    const dur = parseInt($('adminDuration').value,10) || undefined;
+    const day = parseInt($('adminDaySelect').value,10);
+    if(day !== BOOT.activeDay) lastAdmin = await adminAction({action:'setDay', day});
+    lastAdmin = await adminAction({action:'startClock', durationMin:dur});
+    adminDurDirty = false;
+    toast(dur ? 'Clock started for '+dur+' minutes — students can submit now.' : 'Clock started — students can submit now.', 'ok');
   }catch(e){ toast(e.message,'err'); }
 });
+$('adminDaySelect').addEventListener('change', function(){
+  adminDurDirty = false;               // a new day -> back to its default duration
+  renderAdmin();                       // refresh the duration field + labels
+});
+$('adminDuration').addEventListener('input', function(){ adminDurDirty = true; });
 $('closeDayBtn').addEventListener('click', async ()=>{
   try{ lastAdmin = await adminAction({action:'closeDay'}); toast('Day closed — submissions locked.','ok'); }catch(e){ toast(e.message,'err'); }
 });
@@ -1854,6 +1917,16 @@ $('overrideBtn').addEventListener('click', async ()=>{
 });
 $('exportStandings').addEventListener('click', ()=>exportCSV('standings'));
 $('exportDetailed').addEventListener('click', ()=>exportCSV('detailed'));
+$('logoutAllBtn').addEventListener('click', async ()=>{
+  if(!confirm('Log EVERYONE out right now? Every open screen — students and yours — returns to the sign-in page.')) return;
+  try{
+    // force the instructor's own sign-in to renew a token (logoutAll clears all sessions)
+    await api('/api/admin', {pin:PIN, action:'logoutAll'});
+    try{ sessionStorage.removeItem('arena-session'); }catch(_){}
+    TERMINAL_MESSAGE = 'Session ended — sign in again to continue.';
+    location.reload();
+  }catch(e){ toast(e.message,'err'); }
+});
 function fmtBackupTime(ts){ return ts ? new Date(ts).toLocaleTimeString() : 'never'; }
 function renderBackupStatus(){
   const el = $('backupStatusOut'); if(!el) return;
