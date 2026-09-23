@@ -237,6 +237,7 @@
   .mkcd.urgent{background:linear-gradient(135deg,rgba(255,92,108,.14),rgba(255,92,108,.04));border-color:var(--red-deep);} .mkcd.urgent .big{color:var(--red);animation:blink 1s infinite;}
   .mkcd .btn{margin-left:auto;white-space:nowrap;}
   .d.open{border-color:var(--green-deep);box-shadow:0 0 0 1px rgba(61,220,132,.4);}
+  .d.testday{border-color:var(--gold-deep);background:linear-gradient(160deg,rgba(255,181,71,.08),rgba(255,181,71,.02));}
   /* day strip */
   .daystrip{display:flex;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4);}
   .daystrip .d{flex:1 1 155px;background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r-md);padding:var(--s3) var(--s4);cursor:pointer;min-width:150px;position:relative;transition:border-color .15s,transform .15s;}
@@ -453,6 +454,7 @@
         <div class="clockbar" id="clockbarStudent"></div>
         <div id="makeupCountdown"></div>
         <div id="prevGradesBanner"></div>
+        <div id="testHeadsUp"></div>
         <div class="daystrip" id="studentDayStrip"></div>
         <div class="steps">
           <div class="card stepcard">
@@ -713,7 +715,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r22 · Day 5 = final test (certificate) · single attempt · no self-check</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r23 · Friday final-test warning on Day 3/4 + sidebar + day cards</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1109,6 +1111,8 @@ function renderBoard(){
       sideHtml += `<br><span style="color:var(--green);">Today is Day ${today}${todayTitle?' — '+todayTitle:''}</span>`;
       if(today !== BOOT.activeDay) sideHtml += `<br><span style="color:var(--gold-strong);">(active day is Day ${BOOT.activeDay})</span>`;
     }
+    const testDay = days.find(dd=>dd.mode==='test');
+    if(testDay && BOOT.activeDay < testDay.day) sideHtml += `<br><span style="color:var(--gold-strong);font-weight:700;">🎓 ${testDay.weekday} (Day ${testDay.day}) is the FINAL TEST — certificate day.</span>`;
     side.innerHTML = sideHtml;
   }
 
@@ -1158,10 +1162,12 @@ function renderBriefStrip(containerId, current, onClick, statuses, makeupDays){
   el.innerHTML = BOOT.days.map(d=>{
     const st = statuses && statuses[d.day];
     const mk = makeupDays && makeupDays[d.day];
+    const isTest = d.mode === 'test';
     const stat = st==='graded' ? `<span class="stat graded" title="graded">${icon('filecheck')}</span>` : st==='submitted' ? `<span class="stat" title="submitted">${icon('send')}</span>` : '';
     const open = mk ? `<span class="stat" style="color:var(--green);text-shadow:0 0 8px rgba(61,220,132,.8);animation:blink 1.2s infinite;" title="make-up window open">${icon('play')}</span>` : '';
-    return `<div class="d ${d.day===current?'active':''}${mk?' open':''}" data-day="${d.day}" role="button" tabindex="0">
-      ${stat}${open}<div class="wd">${d.weekday} · Day ${d.day}</div><div class="t">${d.title}</div><div class="tm">${icon('clock')} ${d.timeLimitMin} min${mk?' · <b style="color:var(--green);">MAKE-UP OPEN</b>':''}</div>
+    const testTag = isTest ? `<span class="stat" style="color:var(--gold-strong);" title="final test — certificate">🎓</span>` : '';
+    return `<div class="d ${d.day===current?'active':''}${mk?' open':''}${isTest?' testday':''}" data-day="${d.day}" role="button" tabindex="0">
+      ${stat}${open}${testTag}<div class="wd">${d.weekday} · Day ${d.day}${isTest?' · <b style="color:var(--gold-strong);">FINAL TEST</b>':''}</div><div class="t">${d.title}</div><div class="tm">${icon('clock')} ${d.timeLimitMin} min${mk?' · <b style="color:var(--green);">MAKE-UP OPEN</b>':''}</div>
     </div>`;
   }).join('');
   el.querySelectorAll('.d').forEach(n=>{
@@ -1286,6 +1292,18 @@ async function refreshMe(){
   if(!ME || DEMO) return;
   try{ window.ME_DATA = await api('/api/me?name='+encodeURIComponent(ME)); renderStudent(); }catch(_){}
 }
+/* Heads-up: warn students on Days 3-4 that Day 5 is the certificate TEST. */
+function renderTestHeadsUp(me){
+  const el = $('testHeadsUp'); if(!el) return;
+  const testDay = (BOOT.days||[]).find(d=>d.mode==='test');
+  if(!testDay || testDay.day === studentDay){ el.innerHTML=''; return; }
+  const daysLeft = testDay.day - BOOT.activeDay;
+  el.innerHTML = `<div class="alert warn" style="margin:0 0 var(--s3);">
+    <b>${icon('trophy')} ${testDay.weekday} (Day ${testDay.day}) is the FINAL TEST${daysLeft>0?' — '+daysLeft+' day'+(daysLeft>1?'s':'')+' from now':''}.</b><br>
+    <span class="faint">It counts for your certificate (65%) and has exam rules: one submission, no practice self-check. Use today and tomorrow to sharpen everything you've learned.</span>
+  </div>`;
+}
+
 /* Past days with grades get a tap-to-view banner so feedback is unmissable. */
 function renderPrevGradesBanner(me){
   const el = $('prevGradesBanner'); if(!el) return;
@@ -1375,6 +1393,7 @@ function renderStudent(){
     else if(info && info.attempts && info.attempts.length) statuses[d]='submitted';
   }
   renderPrevGradesBanner(me);
+  renderTestHeadsUp(me);
   // build the set of days with an OPEN make-up window for this student
   const mkDays = {};
   for(let d=1; d<=BOOT.days.length; d++){ if(me.makeup && me.makeup[d]) mkDays[d] = me.makeup[d]; }
