@@ -500,6 +500,10 @@
             <div class="stepline"><span class="stepnum gold">★</span><h3 style="margin:0;">Your official grade</h3></div>
             <div id="myGradeOut"></div>
           </div>
+          <div class="card stepcard" id="certificateCard" style="display:none;">
+            <div class="stepline"><span class="stepnum" style="background:var(--gold-deep);">🎓</span><h3 style="margin:0;">Your certificate</h3></div>
+            <div id="certOut"></div>
+          </div>
         </div>
       </section>
 
@@ -709,7 +713,7 @@
       </section>
     </main>
 
-    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r21 · make-up submissions now allowed on closed days across the week</span></footer>
+    <footer>IdeaBox AI Masterclass · Month 3 Week 4 Practical Week · Proof of steps, not vibes. <span class="faint">· build r22 · Day 5 = final test (certificate) · single attempt · no self-check</span></footer>
   </div>
 
   <nav class="tabbar" id="tabNav" aria-label="Main"></nav>
@@ -1404,10 +1408,13 @@ function renderStudent(){
   loadDraft();
 
   const attempts = info.attempts||[];
+  const dayDef = BOOT.days[studentDay-1] || {};
+  const isTest = dayDef.mode === 'test';
   let attemptNote = attempts.length
-    ? `<div class="alert ok">Submitted ${attempts.length} time${attempts.length>1?'s':''} — last at ${new Date(attempts[attempts.length-1].at).toLocaleTimeString()}. You can resubmit; the latest counts.</div>` : '';
+    ? `<div class="alert ok">Submitted ${attempts.length} time${attempts.length>1?'s':''} — last at ${new Date(attempts[attempts.length-1].at).toLocaleTimeString()}. ${isTest?'This is the final test — that is your official answer.': 'You can resubmit; the latest counts.'}</div>` : '';
   let videoNote = '';
   if(studentDay===5) videoNote = `<div class="alert info" style="margin-top:var(--s2);">Today includes a video. There is no video upload here — paste the storyboard, your clipped/advert script, every prompt you used, the exact duration, and a link or full path to the MP4. Attach a thumbnail so the Vision pass can see a frame.</div>`;
+  if(studentDay===5 && isTest) videoNote += `<div class="alert warn" style="margin-top:var(--s2);"><b>${icon('trophy')} FINAL TEST — counts towards your certificate (65%).</b> One submission only. Once you press Submit it is final.${dayDef.testNote?' '+esc(dayDef.testNote):''}</div>`;
   else if(studentDay===3) videoNote = `<div class="alert info" style="margin-top:var(--s2);">The advert is a video, so paste the storyboard, voice script and clip prompts, the exact duration, and where the MP4 is saved (link or path). Attach a thumbnail — the AI can't watch video, so it grades your pasted evidence and the instructor watches the clip.</div>`;
   $('submitHint').innerHTML = attemptNote + videoNote + `The grading agent reads <b>what you paste</b>. Paste the finished work AND the prompt log. The clock decides your Time score.`;
 
@@ -1415,8 +1422,11 @@ function renderStudent(){
   if(g){ $('myGradeCard').style.display='block'; $('myGradeOut').innerHTML = gradeHTML(g); maybeCountUp(g.total); }
   else $('myGradeCard').style.display='none';
   const sc = info.selfCheck;
-  if(sc){ $('selfCheckCard').style.display='block'; $('selfCheckOut').innerHTML = coachHTML(sc.result); }
+  if(sc && !isTest){ $('selfCheckCard').style.display='block'; $('selfCheckOut').innerHTML = coachHTML(sc.result); }
   else $('selfCheckCard').style.display='none';
+  $('selfCheckBtn').style.display = isTest ? 'none' : '';
+  // certificate card (only after Day 5 is graded)
+  renderCertCard(me.certificate);
 
   if(me.progress && me.progress.days.length){
     const last = me.progress.days[me.progress.days.length-1];
@@ -1439,6 +1449,25 @@ function renderStudent(){
     $('submitHint').innerHTML += `<div class="alert warn" style="margin-top:var(--s3);">Submissions are ${BOOT.clock?.status==='closed'?'closed':'not open yet'} for this day.</div>`;
   }
   if(SESSION && SESSION.role==='student') $('sideName').textContent = BOOT.codenames[ME]||ME;
+}
+function renderCertCard(cert){
+  const card = $('certificateCard'); const out = $('certOut');
+  if(!card || !out) return;
+  if(!cert){ card.style.display='none'; return; }
+  card.style.display='block';
+  const bandCol = cert.level==='Distinction' ? 'var(--gold-strong)' : cert.level==='Merit' ? 'var(--green)' : 'var(--blue)';
+  out.innerHTML = `
+    <div class="certbox" style="border:2px solid ${bandCol};border-radius:var(--r-lg);padding:var(--s4);text-align:center;background:linear-gradient(160deg,rgba(120,130,255,.06),rgba(120,130,255,.02));">
+      <div style="font-size:34px;">🎓</div>
+      <div style="font-weight:800;font-size:22px;margin:var(--s1) 0 2px;">${cert.pass ? 'Certified — '+esc(cert.level) : 'Not yet certified'}</div>
+      <div class="faint">IdeaBox AI Masterclass · Month 3 Week 4 Practical Week</div>
+      <div class="big" style="font-size:30px;font-weight:800;color:${bandCol};margin:var(--s2) 0;">${cert.score}/60</div>
+      <div class="muted" style="font-size:13px;">
+        65% final test (${cert.testScore}/60) · 35% days 1–4 (avg ${cert.practiceAvg}/60)
+        ${cert.gradedDays<4?` · ${4-cert.gradedDays} practice day${4-cert.gradedDays>1?'s':''} not graded (counts 0)` : ''}
+      </div>
+      <p class="muted" style="margin-top:var(--s2);font-size:13px;">${cert.pass?'Your instructor can download your printable certificate after the week.':'A final score of 30+ is needed for the certificate.'}</p>
+    </div>`;
 }
 function maybeCountUp(total){
   if(lastAnimatedTotal === total || REDUCED){ lastAnimatedTotal = total; return; }
@@ -1987,11 +2016,13 @@ $('reopenBtn').addEventListener('click', async ()=>{
 $('makeupDaySelect').addEventListener('change', ()=>renderMakeupControls());
 $('openMakeupBtn').addEventListener('click', async ()=>{
   try{
+    const day = parseInt($('makeupDaySelect').value,10);
+    if((BOOT.days[day-1]||{}).mode === 'test'){ toast('Day '+day+' is the final test — it runs live only, no make-up windows.','warn'); return; }
     const students = [...document.querySelectorAll('.mkchk:checked')].map(b=>b.dataset.n);
     if(!students.length){ toast('Tick at least one student first.','warn'); return; }
     const mins = $('makeupMinutes').value ? parseInt($('makeupMinutes').value,10) : 0;
     const excuse = $('makeupExcuse').checked;
-    lastAdmin = await adminAction({action:'openMakeup', day:parseInt($('makeupDaySelect').value,10), students, minutes:mins, excuseTime:excuse});
+    lastAdmin = await adminAction({action:'openMakeup', day, students, minutes:mins, excuseTime:excuse});
     toast('Make-up window open for '+students.join(', ')+(excuse?' (time excused).':' (time counts).'), 'ok');
     renderMakeupControls();
   }catch(e){ toast(e.message,'err'); }

@@ -1,22 +1,22 @@
 {
-  "weekTitle": "Month 3 · Week 4 — Practical Week",
+  "weekTitle": "Month 3 \u00b7 Week 4 \u2014 Practical Week",
   "arenaName": "IdeaBox Arena",
   "rules": {
     "boardModes": {
-      "growth": "Growth Mode — the default. No ranks shown. The class sees the Spotlight Wall (badges), and every student privately sees their own scores, personal best and improvement. Nobody is ever shown as 'last'.",
-      "podium": "Podium Mode — only the top 3 appear on the shared board. Everyone else is listed alphabetically as a participant, with no scores shown.",
-      "full": "Full Mode — classic leaderboard with ranks and every score visible. Use only if the class voted for it."
+      "growth": "Growth Mode \u2014 the default. No ranks shown. The class sees the Spotlight Wall (badges), and every student privately sees their own scores, personal best and improvement. Nobody is ever shown as 'last'.",
+      "podium": "Podium Mode \u2014 only the top 3 appear on the shared board. Everyone else is listed alphabetically as a participant, with no scores shown.",
+      "full": "Full Mode \u2014 classic leaderboard with ranks and every score visible. Use only if the class voted for it."
     },
     "categories": {
-      "goal": "Goal Completion — you delivered EVERY piece the brief asked for. Nothing missing.",
-      "craft": "Craft & Quality — your work is neat, formatted properly, realistic, and consistent.",
-      "creativity": "Creativity — original, specific ideas. Things the AI would NOT give everyone.",
-      "technical": "Technical Correctness — you used the month's tools and rules the right way.",
-      "process": "Process Evidence — you pasted your prompts, traces and logs. Proof of steps, not vibes.",
-      "time": "Time Discipline — the server clock decides this one. Before the buzzer = 10. Late = less. No submission = 0. The AI never grades time."
+      "goal": "Goal Completion \u2014 you delivered EVERY piece the brief asked for. Nothing missing.",
+      "craft": "Craft & Quality \u2014 your work is neat, formatted properly, realistic, and consistent.",
+      "creativity": "Creativity \u2014 original, specific ideas. Things the AI would NOT give everyone.",
+      "technical": "Technical Correctness \u2014 you used the month's tools and rules the right way.",
+      "process": "Process Evidence \u2014 you pasted your prompts, traces and logs. Proof of steps, not vibes.",
+      "time": "Time Discipline \u2014 the server clock decides this one. Before the buzzer = 10. Late = less. No submission = 0. The AI never grades time."
     },
-    "scaleNote": "Each category is scored 0–10. Total per day = 60. You are graded against the brief — not against each other.",
-    "latePolicy": "Submitted before the buzzer = 10. Late by 15 min or less = 7. Late by 16–30 min = 5. Late by 31–60 min = 3. Later than that = 1. No submission = 0. Finishing late still counts — submitting late is always better than not submitting.",
+    "scaleNote": "Each category is scored 0\u201310. Total per day = 60. You are graded against the brief \u2014 not against each other.",
+    "latePolicy": "Submitted before the buzzer = 10. Late by 15 min or less = 7. Late by 16\u201330 min = 5. Late by 31\u201360 min = 3. Later than that = 1. No submission = 0. Finishing late still counts \u2014 submitting late is always better than not submitting.",
     "tieBreak": "Ties are broken by Goal Completion first, then by who submitted earlier. (Instructor console always shows full ranks and scores.)",
     "badges": "Every graded day hands out spotlight badges: Goal Getter, Craft Star, Creative Spark, Tech Whiz, Proof Pro, On-Time Champ, Most Improved, and Personal Best. Ties share the badge. You don't need to win the week to shine on a day."
   },
@@ -26,21 +26,36 @@
       "weekday": "Monday",
       "title": "The Prompt Sprint",
       "tagline": "Prompts only. No images, no code. One hour, one complete business starter pack.",
-      "skills": "Month 1 — RBR, Chain-of-Thought, Few-Shot, self-checking AI, tables",
+      "skills": "Month 1 \u2014 RBR, Chain-of-Thought, Few-Shot, self-checking AI, tables",
       "timeLimitMin": 60,
       "mission": "Today {business} has hired YOU as their AI consultant. Using ONLY text prompts in any chat AI, you will build their complete Business Starter Pack in 60 minutes.",
       "simpleWords": [
-        {"term": "Business Starter Pack", "meaning": "Everything a new business needs to start talking to customers: a description, a price list, a promo plan, and a post."},
-        {"term": "RBR", "meaning": "Role-Background-Rules-Task — the 4-part prompt frame from Month 1. Give the AI a job, a story, rules, and a task."},
-        {"term": "Chain-of-Thought", "meaning": "Asking the AI to think step by step before answering, so the plan makes sense."},
-        {"term": "Few-Shot", "meaning": "Showing the AI one example of what you want first, so it copies the style."},
-        {"term": "Self-checking pass", "meaning": "You paste your result back and ask the AI to find its own mistakes — then you show what it fixed."}
+        {
+          "term": "Business Starter Pack",
+          "meaning": "Everything a new business needs to start talking to customers: a description, a price list, a promo plan, and a post."
+        },
+        {
+          "term": "RBR",
+          "meaning": "Role-Background-Rules-Task \u2014 the 4-part prompt frame from Month 1. Give the AI a job, a story, rules, and a task."
+        },
+        {
+          "term": "Chain-of-Thought",
+          "meaning": "Asking the AI to think step by step before answering, so the plan makes sense."
+        },
+        {
+          "term": "Few-Shot",
+          "meaning": "Showing the AI one example of what you want first, so it copies the style."
+        },
+        {
+          "term": "Self-checking pass",
+          "meaning": "You paste your result back and ask the AI to find its own mistakes \u2014 then you show what it fixed."
+        }
       ],
       "steps": [
         "Read your assigned business below. Think for 2 minutes: who buys from them, and what problem do they solve?",
         "Write ONE RBR prompt that produces a one-paragraph business description. The paragraph must name the customer and the problem.",
-        "Write a prompt that gives a price list of 3–5 items as a clean TABLE, with realistic Lagos 2026 prices in ₦.",
-        "Write a Chain-of-Thought prompt for a one-week WhatsApp promo plan — Monday to Saturday, one line per day.",
+        "Write a prompt that gives a price list of 3\u20135 items as a clean TABLE, with realistic Lagos 2026 prices in \u20a6.",
+        "Write a Chain-of-Thought prompt for a one-week WhatsApp promo plan \u2014 Monday to Saturday, one line per day.",
         "Write a Few-Shot prompt for ONE ready-to-post social caption: give one example post first, then ask for the real one with a call to action.",
         "Paste everything back and run ONE self-checking pass. The AI must find and fix at least one real mistake.",
         "Paste ALL of it into the submit box: the four pieces, plus a heading called PROMPT LOG with every prompt you used, in order."
@@ -48,38 +63,38 @@
       "ifStuck": "Copy the RBR skeleton from Month 1 Week 1: 'You are a... The background is... Your rules are... Your task is...' Fill in the blanks for your business.",
       "ifEarly": "Add a 7th piece: a customer complaint reply template using the same RBR voice. It counts for extra Craft points.",
       "doneWhen": [
-        "All four pieces exist — description, ₦ price table, 6-day promo plan, caption",
+        "All four pieces exist \u2014 description, \u20a6 price table, 6-day promo plan, caption",
         "PROMPT LOG is pasted under its own heading, with every prompt in order",
-        "The self-check shows at least one REAL correction — 'looks good' is not a correction"
+        "The self-check shows at least one REAL correction \u2014 'looks good' is not a correction"
       ],
       "deliverables": [
-        "Pieces 1–4 pasted in full (the price list as an actual table)",
-        "PROMPT LOG — every prompt, in order",
+        "Pieces 1\u20134 pasted in full (the price list as an actual table)",
+        "PROMPT LOG \u2014 every prompt, in order",
         "The self-check: what the AI changed and why"
       ],
       "caveats": [
-        "Text prompts only — no image tools, no code tools today.",
-        "Prices must be realistic for Lagos in 2026 — no ₦500 laptops, no ₦2 million suya.",
-        "No reusing AminaStyle or any class example — your assigned business is your only subject.",
+        "Text prompts only \u2014 no image tools, no code tools today.",
+        "Prices must be realistic for Lagos in 2026 \u2014 no \u20a6500 laptops, no \u20a62 million suya.",
+        "No reusing AminaStyle or any class example \u2014 your assigned business is your only subject.",
         "The self-check must show at least one REAL change."
       ],
-      "evidenceNote": "The grading agent reads what you paste. Paste everything — the work AND the prompts.",
+      "evidenceNote": "The grading agent reads what you paste. Paste everything \u2014 the work AND the prompts.",
       "businessPool": [
-        "Mama Nkechi's Suya Stand — Yaba junction",
-        "BrightPhone Repairs — Computer Village, Ikeja",
-        "Dee Events — small-wedding decorator, Lekki",
-        "QuickCash POS Agent — Agege market",
-        "Aunty Ada's Akara & Pap Breakfast Corner — Surulere",
-        "SplashLaundromat — student laundry service, Yaba",
-        "Mr. Chidi's Driving School — Festac",
-        "GlowUp Braids & Nails — hair studio, Ikorodu",
-        "Tunde's Football Viewing Centre — Ogba",
-        "GreenLeaf Smoothies — health drinks, Victoria Island"
+        "Mama Nkechi's Suya Stand \u2014 Yaba junction",
+        "BrightPhone Repairs \u2014 Computer Village, Ikeja",
+        "Dee Events \u2014 small-wedding decorator, Lekki",
+        "QuickCash POS Agent \u2014 Agege market",
+        "Aunty Ada's Akara & Pap Breakfast Corner \u2014 Surulere",
+        "SplashLaundromat \u2014 student laundry service, Yaba",
+        "Mr. Chidi's Driving School \u2014 Festac",
+        "GlowUp Braids & Nails \u2014 hair studio, Ikorodu",
+        "Tunde's Football Viewing Centre \u2014 Ogba",
+        "GreenLeaf Smoothies \u2014 health drinks, Victoria Island"
       ],
       "gradingFocus": {
-        "goal": "All 4 pieces present and complete: description, ₦ price table, 6-day promo plan, caption",
-        "craft": "Clean tables, realistic ₦ pricing, consistent tone, each framework applied where the brief says",
-        "creativity": "Fresh, specific angles for THIS business — not generic AI filler",
+        "goal": "All 4 pieces present and complete: description, \u20a6 price table, 6-day promo plan, caption",
+        "craft": "Clean tables, realistic \u20a6 pricing, consistent tone, each framework applied where the brief says",
+        "creativity": "Fresh, specific angles for THIS business \u2014 not generic AI filler",
         "technical": "RBR used for the description, Chain-of-Thought for the plan, Few-Shot for the caption, one self-check pass",
         "process": "Full PROMPT LOG pasted in order, and the self-check correction is visible"
       }
@@ -89,61 +104,76 @@
       "weekday": "Tuesday",
       "title": "Brand From Zero",
       "tagline": "A brand-new client. One hour. Logo, two matching product shots, one before/after.",
-      "skills": "Month 2 — image prompts, style lock, inpainting / outpainting / retouching",
+      "skills": "Month 2 \u2014 image prompts, style lock, inpainting / outpainting / retouching",
       "timeLimitMin": 60,
-      "mission": "A brand-new client, {business}, needs a mini brand kit TODAY — a logo, two product shots that clearly belong together, and one before/after edit. In 60 minutes.",
+      "mission": "A brand-new client, {business}, needs a mini brand kit TODAY \u2014 a logo, two product shots that clearly belong together, and one before/after edit. In 60 minutes.",
       "simpleWords": [
-        {"term": "Brand kit", "meaning": "A small set of pictures that make a business look like ONE business: a logo plus product images in the same style."},
-        {"term": "Style lock", "meaning": "The Month 2 trick for keeping the same look across images — repeating the same style words, or reusing the same reference image, so image #2 clearly belongs with image #1."},
-        {"term": "Inpainting", "meaning": "Editing INSIDE an image — like fixing or swapping one part only."},
-        {"term": "Outpainting", "meaning": "Growing the image — making the canvas bigger and letting the AI fill the new edges."},
-        {"term": "Retouching", "meaning": "Cleaning up an image — sharper, better light, removing blemishes."}
+        {
+          "term": "Brand kit",
+          "meaning": "A small set of pictures that make a business look like ONE business: a logo plus product images in the same style."
+        },
+        {
+          "term": "Style lock",
+          "meaning": "The Month 2 trick for keeping the same look across images \u2014 repeating the same style words, or reusing the same reference image, so image #2 clearly belongs with image #1."
+        },
+        {
+          "term": "Inpainting",
+          "meaning": "Editing INSIDE an image \u2014 like fixing or swapping one part only."
+        },
+        {
+          "term": "Outpainting",
+          "meaning": "Growing the image \u2014 making the canvas bigger and letting the AI fill the new edges."
+        },
+        {
+          "term": "Retouching",
+          "meaning": "Cleaning up an image \u2014 sharper, better light, removing blemishes."
+        }
       ],
       "steps": [
-        "Pick your client's identity in your head: one colour story, one mood. Write it down in one line — you will reuse those words in every prompt.",
+        "Pick your client's identity in your head: one colour story, one mood. Write it down in one line \u2014 you will reuse those words in every prompt.",
         "Generate the LOGO with one strong prompt.",
         "Generate product/service image #1.",
-        "Generate image #2 with the SAME style words as image #1 — this is your style lock. The two must look like siblings, not strangers.",
+        "Generate image #2 with the SAME style words as image #1 \u2014 this is your style lock. The two must look like siblings, not strangers.",
         "Choose one of your images and make a BEFORE/AFTER: inpaint something, outpaint the edges, or retouch it.",
         "Attach all images, write one line describing each, and paste every prompt you used."
       ],
       "ifStuck": "Reuse one exact style phrase in every prompt, e.g. 'flat vector logo style, kente gold and deep green, clean background'. Same phrase in, same family out.",
-      "ifEarly": "Make a 3rd product shot that matches the pair — a harder consistency test — or write the brand's one-line slogan.",
+      "ifEarly": "Make a 3rd product shot that matches the pair \u2014 a harder consistency test \u2014 or write the brand's one-line slogan.",
       "doneWhen": [
         "Logo + 2 matching product images + 1 before/after pair are attached",
-        "Every image has its prompt pasted — no orphan images",
+        "Every image has its prompt pasted \u2014 no orphan images",
         "One line explains your style-lock trick for keeping the two product shots consistent"
       ],
       "deliverables": [
         "All images attached (logo, 2 product shots, before/after)",
         "One-line description under each image (the grading agent reads text; the human judge looks at files)",
-        "PROMPT LOG — the prompt for every image",
+        "PROMPT LOG \u2014 the prompt for every image",
         "Your style-lock explanation in one line"
       ],
       "caveats": [
-        "Brand-new identity only — no AminaStyle, no your own brand, no class assets.",
-        "The two product images must look like ONE brand — same style, same feel.",
+        "Brand-new identity only \u2014 no AminaStyle, no your own brand, no class assets.",
+        "The two product images must look like ONE brand \u2014 same style, same feel.",
         "No real logos, no celebrity faces, no copyrighted characters.",
-        "The before/after must be a real edit of your own image — not two different generations.",
+        "The before/after must be a real edit of your own image \u2014 not two different generations.",
         "Every image must come with the prompt that made it."
       ],
-      "evidenceNote": "The grading agent cannot see images — it grades your descriptions and prompt log. Attach files for the human judge, who can adjust scores.",
+      "evidenceNote": "The grading agent cannot see images \u2014 it grades your descriptions and prompt log. Attach files for the human judge, who can adjust scores.",
       "businessPool": [
-        "Zara Kidswear — children's clothing brand",
-        "Lagos Coffee Co. — artisan coffee brand",
-        "SneakerLab — sneaker cleaning kit brand",
-        "Naija Spices — suya spice blend brand",
-        "AquaPure — bottled water delivery brand",
-        "Konga Candles — scented candle brand",
-        "Fitness Freaks — activewear brand",
-        "Sunrise Bakery — bread & pastries brand",
-        "TechGuard — phone cases & screen protectors brand",
-        "Herbal Roots — natural hair care brand"
+        "Zara Kidswear \u2014 children's clothing brand",
+        "Lagos Coffee Co. \u2014 artisan coffee brand",
+        "SneakerLab \u2014 sneaker cleaning kit brand",
+        "Naija Spices \u2014 suya spice blend brand",
+        "AquaPure \u2014 bottled water delivery brand",
+        "Konga Candles \u2014 scented candle brand",
+        "Fitness Freaks \u2014 activewear brand",
+        "Sunrise Bakery \u2014 bread & pastries brand",
+        "TechGuard \u2014 phone cases & screen protectors brand",
+        "Herbal Roots \u2014 natural hair care brand"
       ],
       "gradingFocus": {
         "goal": "Logo + 2 matching product images + 1 before/after pair, all delivered as attachments with descriptions",
         "craft": "Clean, well-composed, brand-consistent images described convincingly",
-        "creativity": "A distinct identity — should not read like a generic stock brand",
+        "creativity": "A distinct identity \u2014 should not read like a generic stock brand",
         "technical": "Style lock actually holds between the two product shots; the before/after is a real inpaint/outpaint/retouch",
         "process": "A prompt for every image + the style-lock explanation line"
       }
@@ -152,62 +182,77 @@
       "day": 3,
       "weekday": "Wednesday",
       "title": "The 30-Second Sell",
-      "tagline": "Three clips, three lines of voice, one quiet beat. A 15–30 second advert.",
-      "skills": "Month 2 — storyboarding, image-to-video, TTS voice-over, BGM, export",
+      "tagline": "Three clips, three lines of voice, one quiet beat. A 15\u201330 second advert.",
+      "skills": "Month 2 \u2014 storyboarding, image-to-video, TTS voice-over, BGM, export",
       "timeLimitMin": 75,
-      "mission": "Your client {business} needs a 15–30 second MP4 advert that sells ONE thing — today. Plan it, generate it, voice it, add music, and export it.",
+      "mission": "Your client {business} needs a 15\u201330 second MP4 advert that sells ONE thing \u2014 today. Plan it, generate it, voice it, add music, and export it.",
       "simpleWords": [
-        {"term": "Storyboard", "meaning": "Your shot list written BEFORE you generate anything: what each shot shows, what moves, where the camera goes."},
-        {"term": "Image-to-video", "meaning": "Starting a clip from a still image you already have, instead of from text only. More control."},
-        {"term": "TTS", "meaning": "Text-to-speech — the AI reads your script out loud with a generated voice."},
-        {"term": "BGM", "meaning": "Background music. Quiet. Under the voice. Generated by AI or genuinely royalty-free."},
-        {"term": "Overlay", "meaning": "Text or a logo placed on top of the video."}
+        {
+          "term": "Storyboard",
+          "meaning": "Your shot list written BEFORE you generate anything: what each shot shows, what moves, where the camera goes."
+        },
+        {
+          "term": "Image-to-video",
+          "meaning": "Starting a clip from a still image you already have, instead of from text only. More control."
+        },
+        {
+          "term": "TTS",
+          "meaning": "Text-to-speech \u2014 the AI reads your script out loud with a generated voice."
+        },
+        {
+          "term": "BGM",
+          "meaning": "Background music. Quiet. Under the voice. Generated by AI or genuinely royalty-free."
+        },
+        {
+          "term": "Overlay",
+          "meaning": "Text or a logo placed on top of the video."
+        }
       ],
       "steps": [
-        "Write your 5-LINE storyboard: shot number, what it shows, subject motion, camera motion. Keep it simple — 5 shots is enough.",
+        "Write your 5-LINE storyboard: shot number, what it shows, subject motion, camera motion. Keep it simple \u2014 5 shots is enough.",
         "Write your 3-LINE voice script. Line 1 hooks, line 2 sells, line 3 tells them what to do.",
-        "Generate 2–3 clips from STILL IMAGES (image-to-video). Generate the images first if you don't have them.",
+        "Generate 2\u20133 clips from STILL IMAGES (image-to-video). Generate the images first if you don't have them.",
         "Generate the TTS voice-over from your script. Re-generate if a word sounds wrong.",
-        "Generate quiet BGM — instrumental only, no famous songs.",
+        "Generate quiet BGM \u2014 instrumental only, no famous songs.",
         "Assemble: clips in order, voice on top, music under, ONE text or logo overlay. Check the volume: voice clear, music quiet.",
-        "Export ONE MP4 named brandname_advert.mp4 and check it measures 15–30 seconds."
+        "Export ONE MP4 named brandname_advert.mp4 and check it measures 15\u201330 seconds."
       ],
       "ifStuck": "Shorter is safer: 3 shots of 5 seconds each = 15 seconds, exactly in the window. Don't chase 30 seconds if time is tight.",
       "ifEarly": "Add a second overlay near the end with the client's phone number or location, or make a vertical 9:16 cut for WhatsApp Status.",
       "doneWhen": [
-        "One MP4 exists, measures 15–30 seconds, with voice + music + overlay",
+        "One MP4 exists, measures 15\u201330 seconds, with voice + music + overlay",
         "The 5-line storyboard and the 3-line voice script are pasted",
         "The exact duration is stated and the file location (path or link) is given"
       ],
       "deliverables": [
         "Storyboard (5 lines) pasted",
         "Voice script (3 lines) pasted",
-        "PROMPT LOG — the clip prompts and the music prompt",
+        "PROMPT LOG \u2014 the clip prompts and the music prompt",
         "The exact duration in seconds, and where the MP4 is saved (full path or link)",
         "One screenshot or thumbnail attached, if you can"
       ],
       "caveats": [
-        "No famous songs — BGM must be AI-generated or genuinely royalty-free (the license rule).",
-        "The voice must be TTS, and the advert must actually measure 15–30 seconds.",
+        "No famous songs \u2014 BGM must be AI-generated or genuinely royalty-free (the license rule).",
+        "The voice must be TTS, and the advert must actually measure 15\u201330 seconds.",
         "At least two clips must start from still images (image-to-video), not pure text-to-video.",
-        "Volume balance: voice clear, music quiet — no drowning."
+        "Volume balance: voice clear, music quiet \u2014 no drowning."
       ],
       "evidenceNote": "The grading agent reads your storyboard, scripts, prompts and stated duration. Attach the thumbnail and give the file path for the human judge.",
       "businessPool": [
-        "Sharp Fade Barbing Salon — advertise their home-service offer",
-        "Aunty B's Kitchen — advertise weekend party packs",
-        "Iron Temple Gym — advertise a 30-day transformation challenge",
-        "Lagos Luxe Boutique — advertise new arrivals",
-        "Pixel Perfect Photography — advertise wedding packages",
-        "Smooth Drive Driving School — advertise weekend classes",
-        "Dough Nation Bakery — advertise fresh morning bread",
-        "GadgetHub Phone Shop — advertise trade-in deals"
+        "Sharp Fade Barbing Salon \u2014 advertise their home-service offer",
+        "Aunty B's Kitchen \u2014 advertise weekend party packs",
+        "Iron Temple Gym \u2014 advertise a 30-day transformation challenge",
+        "Lagos Luxe Boutique \u2014 advertise new arrivals",
+        "Pixel Perfect Photography \u2014 advertise wedding packages",
+        "Smooth Drive Driving School \u2014 advertise weekend classes",
+        "Dough Nation Bakery \u2014 advertise fresh morning bread",
+        "GadgetHub Phone Shop \u2014 advertise trade-in deals"
       ],
       "gradingFocus": {
         "goal": "All 6 deliverables present: storyboard, clips, voice, music, overlay, exported MP4",
-        "craft": "A tight edit — readable overlay, balanced audio, no dead seconds",
+        "craft": "A tight edit \u2014 readable overlay, balanced audio, no dead seconds",
         "creativity": "A sell people remember, not a slideshow",
-        "technical": "Duration is truly 15–30s, at least 2 clips are image-to-video, TTS voice, correct filename",
+        "technical": "Duration is truly 15\u201330s, at least 2 clips are image-to-video, TTS voice, correct filename",
         "process": "Storyboard + voice script + prompt log pasted, duration stated, file location given"
       }
     },
@@ -216,23 +261,38 @@
       "weekday": "Thursday",
       "title": "Agent in a Box",
       "tagline": "Empty folder. Ninety minutes. One working agent with a gate that never lies.",
-      "skills": "Month 3 — full-stack build, action cards, the Approve gate, step traces, .env",
+      "skills": "Month 3 \u2014 full-stack build, action cards, the Approve gate, step traces, .env",
       "timeLimitMin": 90,
-      "mission": "Today's job: {business}. From an EMPTY folder, get your coding agent to build a working app where a customer request becomes a PENDING action card — and NOTHING happens until the owner clicks Approve or Reject.",
+      "mission": "Today's job: {business}. From an EMPTY folder, get your coding agent to build a working app where a customer request becomes a PENDING action card \u2014 and NOTHING happens until the owner clicks Approve or Reject.",
       "simpleWords": [
-        {"term": "Action card", "meaning": "A card that says 'here is what I want to do — waiting for your decision'. Status: PENDING until a human decides."},
-        {"term": "The Approve gate", "meaning": "The class rule: nothing auto-sends, nothing charges money, nothing touches a real system. Only your click moves a card."},
-        {"term": "The five steps", "meaning": "PLAN → use tool → CHECK → PROPOSE → STOP. The worker shows all five, in order, as a visible trace."},
-        {"term": "Trace", "meaning": "The step-by-step record of what the worker did. The exit ticket of Month 3: the trace, not a nicer reply."},
-        {"term": "Only truth", "meaning": "Your product or pricing list is the ONLY thing the worker may state as fact. Unsure = 'not verified', never invented."}
+        {
+          "term": "Action card",
+          "meaning": "A card that says 'here is what I want to do \u2014 waiting for your decision'. Status: PENDING until a human decides."
+        },
+        {
+          "term": "The Approve gate",
+          "meaning": "The class rule: nothing auto-sends, nothing charges money, nothing touches a real system. Only your click moves a card."
+        },
+        {
+          "term": "The five steps",
+          "meaning": "PLAN \u2192 use tool \u2192 CHECK \u2192 PROPOSE \u2192 STOP. The worker shows all five, in order, as a visible trace."
+        },
+        {
+          "term": "Trace",
+          "meaning": "The step-by-step record of what the worker did. The exit ticket of Month 3: the trace, not a nicer reply."
+        },
+        {
+          "term": "Only truth",
+          "meaning": "Your product or pricing list is the ONLY thing the worker may state as fact. Unsure = 'not verified', never invented."
+        }
       ],
       "steps": [
         "Create an empty folder. Decide in one sentence what your worker does: which customer request becomes which card.",
         "Write your scaffold prompt: describe the app, the PENDING card, the Approve/Reject buttons, and the five-step trace shown in the UI. Paste it to your coding agent.",
-        "Save the files exactly where the agent says. Put any API key in .env — variable names only in your paste, values hidden.",
+        "Save the files exactly where the agent says. Put any API key in .env \u2014 variable names only in your paste, values hidden.",
         "Run it. Open the app. Send one customer request.",
-        "Watch the trace: PLAN → use tool → CHECK → PROPOSE → STOP. A PENDING card must appear.",
-        "Click Approve, then test again and click Reject. The card's status must change — and nothing else must happen.",
+        "Watch the trace: PLAN \u2192 use tool \u2192 CHECK \u2192 PROPOSE \u2192 STOP. A PENDING card must appear.",
+        "Click Approve, then test again and click Reject. The card's status must change \u2014 and nothing else must happen.",
         "Paste your run instructions, your scaffold prompt, and the full five-step trace of your test request."
       ],
       "ifStuck": "Say to your coding agent: 'Do all the wiring yourself, keep it to one page, no real sending anywhere.' Smaller app that works beats bigger app that doesn't.",
@@ -243,31 +303,31 @@
         "Approve and Reject work, and the five-step trace is visible in the UI"
       ],
       "deliverables": [
-        "What the app does — 3 lines",
-        "How to run it — the exact commands",
-        "PROMPT LOG — the scaffold prompt you gave the coding agent",
+        "What the app does \u2014 3 lines",
+        "How to run it \u2014 the exact commands",
+        "PROMPT LOG \u2014 the scaffold prompt you gave the coding agent",
         "A paste of the trace from one full customer request (all five steps)",
-        "If you used any API: proof your keys are in .env — paste the variable NAMES only, values hidden (e.g. MISTRAL_API_KEY=•••)"
+        "If you used any API: proof your keys are in .env \u2014 paste the variable NAMES only, values hidden (e.g. MISTRAL_API_KEY=\u2022\u2022\u2022)"
       ],
       "caveats": [
-        "Any API key lives in .env — never in HTML, never pasted with its value.",
+        "Any API key lives in .env \u2014 never in HTML, never pasted with its value.",
         "The gate rule: nothing auto-sends, nothing charges, nothing touches a real system. Approve only changes the card's status.",
-        "Fresh scaffold — no reusing your class project files wholesale.",
+        "Fresh scaffold \u2014 no reusing your class project files wholesale.",
         "The trace must be visible in the app UI, not only in the console."
       ],
-      "evidenceNote": "The grading agent reads your run instructions, scaffold prompt and pasted trace. Keep your app open — the human judge may ask you to run it live.",
+      "evidenceNote": "The grading agent reads your run instructions, scaffold prompt and pasted trace. Keep your app open \u2014 the human judge may ask you to run it live.",
       "businessPool": [
-        "a booking-request agent for Sharp Fade barbing salon — customers ask for home service, the worker drafts a PENDING booking card",
-        "an order-draft agent for Aunty B's Kitchen — party-pack orders become PENDING order drafts",
-        "an RSVP collector for Dee Events — guest replies become PENDING RSVP cards",
-        "a complaint-triage agent for Speedy Logistics — delivery complaints become PENDING refund-or-escalate cards",
-        "a price-quote agent for SplashLaundromat — customers ask 'how much for X?', the worker drafts PENDING quote cards",
-        "a waitlist agent for GlowUp Braids & Nails — new customers land as PENDING slot-offer cards"
+        "a booking-request agent for Sharp Fade barbing salon \u2014 customers ask for home service, the worker drafts a PENDING booking card",
+        "an order-draft agent for Aunty B's Kitchen \u2014 party-pack orders become PENDING order drafts",
+        "an RSVP collector for Dee Events \u2014 guest replies become PENDING RSVP cards",
+        "a complaint-triage agent for Speedy Logistics \u2014 delivery complaints become PENDING refund-or-escalate cards",
+        "a price-quote agent for SplashLaundromat \u2014 customers ask 'how much for X?', the worker drafts PENDING quote cards",
+        "a waitlist agent for GlowUp Braids & Nails \u2014 new customers land as PENDING slot-offer cards"
       ],
       "gradingFocus": {
         "goal": "Working app + PENDING card + working Approve/Reject + visible five-step trace",
         "craft": "Clean UI, clear statuses, honest naming",
-        "creativity": "A genuinely useful worker — small but smart",
+        "creativity": "A genuinely useful worker \u2014 small but smart",
         "technical": "The app runs from the given commands; keys safe in .env; the gate truly blocks every send",
         "process": "Scaffold prompt + one full five-step trace pasted + exact run commands"
       }
@@ -275,56 +335,65 @@
     {
       "day": 5,
       "weekday": "Friday",
-      "title": "Launch Day",
-      "tagline": "Everything you learned. One brand-new business. Two hours — then 3 minutes on stage.",
-      "skills": "All 3 months — prompts, images, video/audio, prompt → HTML, presenting",
+      "title": "Launch Day \u2014 Final Test",
+      "tagline": "The certificate test. Two hours. One brand-new business launched from zero. No practice checks, no retakes.",
+      "skills": "All 3 months \u2014 prompts, images, video/audio, prompt \u2192 HTML, presenting",
       "timeLimitMin": 120,
-      "mission": "The final challenge: {business} launches TODAY. In 120 minutes you build the whole launch, then you pitch it live for 3 minutes.",
+      "mission": "FINAL TEST (for your certificate): {business} launches TODAY. In 120 minutes you build the whole launch, then you pitch it live for 3 minutes. One submission only.",
       "simpleWords": [
-        {"term": "Prompt → HTML", "meaning": "The Month 1 trick: describe the page in plain English, let the AI write ONE html file you can open offline."},
-        {"term": "Hero image", "meaning": "The big first picture at the top of the page. First impression."},
-        {"term": "The pitch", "meaning": "Five lines: what it is, who it's for, why now, the price, one proof. Spoken out loud, 3 minutes."}
+        {
+          "term": "Prompt \u2192 HTML",
+          "meaning": "The Month 1 trick: describe the page in plain English, let the AI write ONE html file you can open offline."
+        },
+        {
+          "term": "Hero image",
+          "meaning": "The big first picture at the top of the page. First impression."
+        },
+        {
+          "term": "The pitch",
+          "meaning": "Five lines: what it is, who it's for, why now, the price, one proof. Spoken out loud, 3 minutes."
+        }
       ],
       "steps": [
         "Spend 5 minutes planning: who is the customer, what do they pay, what is the one big feeling of the brand?",
-        "Prompt → HTML: ask the AI for ONE single HTML file — hero image section, about section, price list in ₦, contact section. Save it and double-click to open it.",
+        "Prompt \u2192 HTML: ask the AI for ONE single HTML file \u2014 hero image section, about section, price list in \u20a6, contact section. Save it and double-click to open it.",
         "Generate the hero image or logo and put it in.",
         "Make the 15-SECOND advert: a video with voice, OR your voice-over over a static image. Check the length.",
-        "Write your 5-line pitch: what it is, who it's for, why now, the price (a real ₦ number), one proof.",
+        "Write your 5-line pitch: what it is, who it's for, why now, the price (a real \u20a6 number), one proof.",
         "Paste everything into the submit box: the HTML (or attach the file), the advert's file path + duration, the pitch, your prompt log, and the list of AI tools you used.",
         "Rehearse the 3-minute pitch once out loud. On stage: the site must open in under 30 seconds."
       ],
-      "ifStuck": "Build in this order — site, image, advert, pitch. If time runs short, a simple site + strong pitch beats a fancy site + no pitch.",
+      "ifStuck": "Build in this order \u2014 site, image, advert, pitch. If time runs short, a simple site + strong pitch beats a fancy site + no pitch.",
       "ifEarly": "Add a testimonial section to the site, or a short jingle over your advert's last 3 seconds.",
       "doneWhen": [
-        "The site opens — one HTML file, offline",
-        "The advert plays — 15 seconds, voice + music",
-        "The 5-line pitch is delivered, with at least one real ₦ number"
+        "The site opens \u2014 one HTML file, offline",
+        "The advert plays \u2014 15 seconds, voice + music",
+        "The 5-line pitch is delivered, with at least one real \u20a6 number"
       ],
       "deliverables": [
         "The site: paste the full HTML (or attach the file) and say where it's saved",
         "The hero image or logo attached",
-        "The advert — file path or link, plus its duration",
+        "The advert \u2014 file path or link, plus its duration",
         "The 5-line pitch pasted",
         "PROMPT LOG for the site, image and advert + the list of AI tools you used (at least 3)"
       ],
       "caveats": [
-        "Every asset is made TODAY inside the window — no recycling Week 1–3 work or class assets.",
-        "At least 3 different AI tools used — list them by name.",
+        "Every asset is made TODAY inside the window \u2014 no recycling Week 1\u20133 work or class assets.",
+        "At least 3 different AI tools used \u2014 list them by name.",
         "The site must be ONE HTML file that opens offline.",
-        "The pitch must contain at least one real ₦ number.",
-        "Demo rule: the site opens in under 30 seconds — no 'wait, let me boot something' on stage."
+        "The pitch must contain at least one real \u20a6 number.",
+        "Demo rule: the site opens in under 30 seconds \u2014 no 'wait, let me boot something' on stage."
       ],
       "evidenceNote": "Paste everything the grading agent reads: the pitch, the prompt log, the tools list, the HTML. Keep the site and advert open for the human judge.",
       "businessPool": [
-        "CampusCrave — late-night food delivery for students",
-        "FixItFast — on-demand phone repair at your door",
-        "ThreadTheory — made-to-measure thrift upcycling",
-        "StudyBuddy NG — WAEC & JAMB prep with an AI tutor",
-        "RideMum — safe school-runs carpool for parents",
-        "FarmFresh Box — weekly farm-to-door produce box",
-        "SkillSwap — trade skills with your neighbours",
-        "RentAChair — event furniture rental marketplace"
+        "CampusCrave \u2014 late-night food delivery for students",
+        "FixItFast \u2014 on-demand phone repair at your door",
+        "ThreadTheory \u2014 made-to-measure thrift upcycling",
+        "StudyBuddy NG \u2014 WAEC & JAMB prep with an AI tutor",
+        "RideMum \u2014 safe school-runs carpool for parents",
+        "FarmFresh Box \u2014 weekly farm-to-door produce box",
+        "SkillSwap \u2014 trade skills with your neighbours",
+        "RentAChair \u2014 event furniture rental marketplace"
       ],
       "gradingFocus": {
         "goal": "Site + hero image + 15s advert + 5-line pitch, all delivered",
@@ -332,7 +401,9 @@
         "creativity": "A launch that feels real and specific to Lagos",
         "technical": "Single-file site opens offline, advert is ~15s, at least 3 AI tools listed",
         "process": "Full prompt log + tools list + everything pasted for the grader"
-      }
+      },
+      "mode": "test",
+      "testNote": "This is the final test. There is no practice self-check and no second attempt \u2014 submit only when you are done. Your result here counts for 65% of your certificate score."
     }
   ]
 }

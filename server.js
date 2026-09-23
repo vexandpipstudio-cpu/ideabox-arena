@@ -627,7 +627,13 @@ function publicDays() {
     timeLimitMin: d.timeLimitMin, mission: d.mission, simpleWords: d.simpleWords || [],
     steps: d.steps || [], ifStuck: d.ifStuck || '', ifEarly: d.ifEarly || '',
     doneWhen: d.doneWhen, deliverables: d.deliverables, caveats: d.caveats, evidenceNote: d.evidenceNote,
+    mode: d.mode || 'practice', testNote: d.testNote || '',
   }));
+}
+/* is this day a certificate TEST (no self-check, no retakes, no make-up)? */
+function isTestDay(day) {
+  const b = DAYS.days[day - 1];
+  return !!(b && b.mode === 'test');
 }
 
 /* ---------------- leaderboard core ---------------- */
@@ -1018,6 +1024,25 @@ function studentProgress(name) {
   return { days, personalBest, badges };
 }
 
+/* ---------------- certificate scoring (Day 5 is the test) ----------------
+ * Final score = 35% (Days 1–4 average) + 65% (Day 5 test), out of 60.
+ * Bands: Distinction 48+, Merit 40–47, Pass 30–39. Only counts if the test is graded. */
+function certificateFor(name) {
+  const test = gradeOut(5, name);
+  if (!test) return null;
+  let practiceSum = 0, practiceCount = 0;
+  for (let d = 1; d <= 4; d++) {
+    const g = gradeOut(d, name);
+    if (g) { practiceSum += g.total; practiceCount += 1; }
+  }
+  const practiceAvg = practiceCount ? practiceSum / practiceCount : 0; // absent days = 0, so average uses available days
+  const score = Math.round(0.35 * practiceAvg + 0.65 * test.total);
+  let level = 'Pass';
+  if (score >= 48) level = 'Distinction';
+  else if (score >= 40) level = 'Merit';
+  return { score, level, practiceAvg: Math.round(practiceAvg * 10) / 10, testScore: test.total, pass: score >= 30, gradedDays: practiceCount };
+}
+
 /* ---------------- console helpers ---------------- */
 function usersForConsole() {
   return USERS.users.map((u) => ({ role: u.role, name: u.name, username: u.username, password: u.role === 'student' ? u.password : '••••••' }));
@@ -1228,6 +1253,7 @@ async function handleAPI(req, res, url) {
       return send({
         ok: true, name, codename: STATE.codenames[name] || '', days,
         progress: studentProgress(name),
+        certificate: certificateFor(name),
         startedAt: (STATE.starts[STATE.activeDay] || {})[name] || null,
         submittedAt: attempts(STATE.activeDay, name).length
           ? attempts(STATE.activeDay, name)[attempts(STATE.activeDay, name).length - 1].at : null,
@@ -1291,6 +1317,10 @@ async function handleAPI(req, res, url) {
         if (STATE.clock.status === 'idle') return send({ ok: false, error: 'CLOCK_NOT_STARTED: wait for the instructor to start the clock' }, 400);
         if (STATE.clock.status === 'closed') return send({ ok: false, error: 'DAY_CLOSED: submissions are closed' }, 400);
       }
+      // strict test day: ONE attempt only — no retakes once submitted
+      if (isTestDay(day) && attempts(day, name).length) {
+        return send({ ok: false, error: 'TEST_ALREADY_SUBMITTED: the final test allows only one submission — it is already in.' }, 400);
+      }
       const text = String(body.text || '').trim();
       const links = (Array.isArray(body.links) ? body.links : []).map(String).filter(Boolean).slice(0, 10);
       if (!text && !links.length) return send({ ok: false, error: 'EMPTY_SUBMISSION: paste your work or add a link' }, 400);
@@ -1314,6 +1344,7 @@ async function handleAPI(req, res, url) {
       const sess = sessionFor(body.t);
       if (!sess || sess.name !== name) return send({ ok: false, error: 'BAD_SESSION: you were signed out — sign in again' }, 401);
       const makeup = makeUpActive(day, name);
+      if (isTestDay(day)) return send({ ok: false, error: 'NO_SELFCHECK_ON_TEST: the final test has no practice check — proof is part of the exam.' }, 400);
       if (!makeup && day !== STATE.activeDay) return send({ ok: false, error: 'DAY_CLOSED: that day is not open' }, 400);
       const result = await selfCheckSubmission(day, name);
       return send({ ok: true, result });
@@ -1409,6 +1440,7 @@ async function handleAPI(req, res, url) {
         // without touching the class clock or re-running finished students.
         const day = parseInt(body.day, 10);
         if (!DAYS.days[day - 1]) return send({ ok: false, error: 'BAD_DAY' }, 400);
+        if (isTestDay(day)) return send({ ok: false, error: 'TEST_DAY: the final test runs live only — no make-up windows.' }, 400);
         const raw = Array.isArray(body.students) ? body.students.map(String)
           : (body.students === 'nonsubmitted'
               ? STATE.roster.filter((n) => !attempts(day, n).length)
