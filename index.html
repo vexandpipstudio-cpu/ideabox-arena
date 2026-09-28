@@ -984,6 +984,7 @@ async function loadAdminData(){
   try{
     lastAdmin = await api('/api/admin', {pin:PIN, action:'reloadDays'});
     renderAdmin();
+    renderCertificates();
     // rejoin a grading run in progress (e.g. after a refresh)
     try{
       const g = await api('/api/grading', {pin:PIN});
