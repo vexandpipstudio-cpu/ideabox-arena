@@ -656,6 +656,12 @@
         </div>
       </section>
 
+      <!-- CERTIFICATES -->
+      <section id="view-certificates" style="display:none;">
+        <p class="pagelead">Preview and print every student's certificate from one instructor-only page. Certificates use the final stored scores and the 35% practice / 65% Day 5 formula.</p>
+        <div id="certificatesGrid" class="admin-grid"></div>
+      </section>
+
       <!-- ACCOUNT (change password) -->
       <section id="view-account" style="display:none;">
         <p class="pagelead">Your login, your password. Change it any time — the new one works the moment you save it.</p>
@@ -751,6 +757,7 @@ const NAV_ITEMS = [
   {id:'people',   label:'People',      icon:'users',  roles:['instructor']},
   {id:'grading',  label:'Grading',     icon:'bolt',   roles:['instructor']},
   {id:'standings',label:'Standings',   icon:'medal',  roles:['instructor']},
+  {id:'certificates',label:'Certificates', icon:'medal', roles:['instructor']},
   {id:'account',  label:'My account',  icon:'lock',   roles:['student','instructor']},
 ];
 
@@ -1016,7 +1023,7 @@ function showView(v){
   currentView = v;
   if(SESSION){ try{ SESSION.lastView=v; sessionStorage.setItem('arena-session', JSON.stringify(SESSION)); }catch(_){} }
   const titles = {board:'Class board', missions:'All missions', myspace:'Today', rules:'How it works',
-    run:'Run the day', tracker:'Start tracker', people:'People', grading:'Grading', standings:'Standings & data', account:'My account'};
+    run:'Run the day', tracker:'Start tracker', people:'People', grading:'Grading', standings:'Standings & data', certificates:'Certificates', account:'My account'};
   $('pageTitle').textContent = titles[v]||'IdeaBox Arena';
   document.querySelectorAll('main > section[id^="view-"]').forEach(sec=>{
     sec.style.display = sec.id===('view-'+v) ? 'block':'none';
@@ -1445,7 +1452,7 @@ function renderStudent(){
   else $('selfCheckCard').style.display='none';
   $('selfCheckBtn').style.display = isTest ? 'none' : '';
   // certificate card (only after Day 5 is graded)
-  renderCertCard(me.certificate);
+  renderCertCard(me.certificate, me.name);
 
   if(me.progress && me.progress.days.length){
     const last = me.progress.days[me.progress.days.length-1];
@@ -1469,24 +1476,45 @@ function renderStudent(){
   }
   if(SESSION && SESSION.role==='student') $('sideName').textContent = BOOT.codenames[ME]||ME;
 }
-function renderCertCard(cert){
+function renderCertCard(cert, studentName){
   const card = $('certificateCard'); const out = $('certOut');
   if(!card || !out) return;
   if(!cert){ card.style.display='none'; return; }
   card.style.display='block';
   const bandCol = cert.level==='Distinction' ? 'var(--gold-strong)' : cert.level==='Merit' ? 'var(--green)' : 'var(--blue)';
+  const issued = new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'});
   out.innerHTML = `
     <div class="certbox" style="border:2px solid ${bandCol};border-radius:var(--r-lg);padding:var(--s4);text-align:center;background:linear-gradient(160deg,rgba(120,130,255,.06),rgba(120,130,255,.02));">
       <div style="font-size:34px;">🎓</div>
-      <div style="font-weight:800;font-size:22px;margin:var(--s1) 0 2px;">${cert.pass ? 'Certified — '+esc(cert.level) : 'Not yet certified'}</div>
+      <div class="lbl" style="color:${bandCol};">OFFICIAL CERTIFICATE</div>
+      <div style="font-weight:800;font-size:24px;margin:var(--s1) 0 2px;">${esc(studentName||'Student')}</div>
+      <div style="font-weight:800;font-size:20px;margin:var(--s1) 0 2px;">${cert.pass ? 'Certified — '+esc(cert.level) : 'Not yet certified'}</div>
       <div class="faint">IdeaBox AI Masterclass · Month 3 Week 4 Practical Week</div>
-      <div class="big" style="font-size:30px;font-weight:800;color:${bandCol};margin:var(--s2) 0;">${cert.score}/60</div>
+      <div class="big" style="font-size:34px;font-weight:800;color:${bandCol};margin:var(--s2) 0;">${cert.score}/60</div>
       <div class="muted" style="font-size:13px;">
-        65% final test (${cert.testScore}/60) · 35% days 1–4 (avg ${cert.practiceAvg}/60)
-        ${cert.gradedDays<4?` · ${4-cert.gradedDays} practice day${4-cert.gradedDays>1?'s':''} not graded (counts 0)` : ''}
+        65% final test (${cert.testScore}/60) · 35% Days 1–4 (average ${cert.practiceAvg}/60)
+        ${cert.gradedDays<4?` · ${4-cert.gradedDays} practice day${cert.gradedDays>1?'s':''} not graded (counts 0)` : ''}
       </div>
-      <p class="muted" style="margin-top:var(--s2);font-size:13px;">${cert.pass?'Your instructor can download your printable certificate after the week.':'A final score of 30+ is needed for the certificate.'}</p>
+      <div class="faint" style="margin-top:var(--s2);">Issued ${issued}</div>
+      <div style="display:flex;justify-content:center;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s4);">
+        ${cert.pass ? `<button class="btn small" id="printCertBtn" type="button">🖨 Print / save PDF</button>` : ''}
+      </div>
+      <p class="muted" style="margin-top:var(--s3);font-size:13px;">${cert.pass?'This certificate is now posted to your dashboard. Use Print / save PDF to keep a copy.':'A final score of 30+ is needed for the certificate.'}</p>
     </div>`;
+  const printBtn = $('printCertBtn');
+  if(printBtn) printBtn.addEventListener('click', ()=>printCertificate(cert, studentName));
+}
+function printCertificate(cert, studentName){
+  const w = window.open('', '_blank');
+  if(!w){ toast('Allow pop-ups to print your certificate.', 'warn'); return; }
+  const name = esc(studentName || 'Student');
+  const level = esc(cert.level || 'Certified');
+  const issued = new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'});
+  const accent = cert.level==='Distinction' ? '#b7791f' : cert.level==='Merit' ? '#19734a' : '#2563a6';
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>IdeaBox Certificate — ${name}</title><style>
+    @page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;background:#f5f1e8;color:#1e293b;font-family:Georgia,'Times New Roman',serif}.sheet{width:100vw;min-height:100vh;padding:34px;display:grid;place-items:center}.certificate{width:min(1000px,92vw);min-height:650px;background:#fffdf7;border:12px solid ${accent};outline:2px solid #d4a64a;outline-offset:-26px;padding:72px 90px;text-align:center;position:relative;display:flex;flex-direction:column;justify-content:center}.eyebrow{font:700 14px Arial,sans-serif;letter-spacing:4px;color:${accent}}h1{font-size:48px;letter-spacing:3px;margin:22px 0 12px;color:#172033}h2{font-size:34px;margin:0 0 18px;color:${accent}}.name{font-size:42px;font-weight:700;margin:10px 0 26px}.sub{font:16px Arial,sans-serif;color:#526074}.score{font:700 32px Arial,sans-serif;color:${accent};margin:26px 0 8px}.detail{font:14px Arial,sans-serif;color:#526074}.date{font:14px Arial,sans-serif;margin-top:36px;color:#667085}.seal{position:absolute;right:52px;bottom:42px;width:74px;height:74px;border:2px solid ${accent};border-radius:50%;display:grid;place-items:center;font:700 11px Arial,sans-serif;color:${accent};transform:rotate(-12deg)}.footer{font:12px Arial,sans-serif;color:#7b8794;margin-top:30px}@media print{.sheet{padding:0}.certificate{width:100vw;height:100vh}}
+  </style></head><body><div class="sheet"><main class="certificate"><div class="eyebrow">IDEABOX AI MASTERCLASS</div><h1>CERTIFICATE OF COMPLETION</h1><div class="sub">This certifies that</div><div class="name">${name}</div><div class="sub">has successfully completed the Month 3 Week 4 Practical Week</div><h2>${level}</h2><div class="score">${cert.score}/60</div><div class="detail">35% Days 1–4 practice average: ${cert.practiceAvg}/60 · 65% Day 5 final test: ${cert.testScore}/60</div><div class="date">Issued ${issued}</div><div class="footer">Prompting · Visual production · AI tools · Agent workflows · Launch practice</div><div class="seal">CERTIFIED<br>AI PRACTICAL</div></main></div><script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>`);
+  w.document.close(); w.focus();
 }
 function maybeCountUp(total){
   if(lastAnimatedTotal === total || REDUCED){ lastAnimatedTotal = total; return; }
@@ -1950,6 +1978,47 @@ async function exportCSV(type){
   }catch(e){ toast(e.message,'err'); }
 }
 
+function certificateFromRow(row){
+  const days = row && row.days || {};
+  const test = days[5] || days['5'];
+  if(!test) return null;
+  let sum=0, count=0;
+  for(let d=1; d<=4; d++){
+    const g = days[d] || days[String(d)];
+    if(g){ sum += Number(g.total||0); count += 1; }
+  }
+  const practiceAvg = count ? sum/count : 0;
+  const score = Math.round(0.35*practiceAvg + 0.65*Number(test.total||0));
+  const level = score>=48 ? 'Distinction' : score>=40 ? 'Merit' : 'Pass';
+  return {score, level, practiceAvg:Math.round(practiceAvg*10)/10, testScore:Number(test.total||0), pass:score>=30, gradedDays:count};
+}
+function renderCertificates(){
+  const el = $('certificatesGrid');
+  if(!el || !PIN) return;
+  const rows = (lastAdmin && lastAdmin.leaderboard) || [];
+  if(!rows.length){ el.innerHTML = '<div class="card"><div class="empty">Load the instructor data to see certificates.</div></div>'; return; }
+  el.innerHTML = rows.map(row=>{
+    const cert = certificateFromRow(row);
+    if(!cert) return `<div class="card"><h3>${icon('user')} ${esc(row.name)}</h3><div class="alert warn">No Day 5 grade — no certificate yet.</div></div>`;
+    const accent = cert.level==='Distinction' ? 'var(--gold-strong)' : cert.level==='Merit' ? 'var(--green)' : 'var(--blue)';
+    return `<div class="card" style="border:2px solid ${accent};background:linear-gradient(160deg,rgba(120,130,255,.06),rgba(120,130,255,.02));text-align:center;">
+      <div style="font-size:32px;">🎓</div>
+      <div class="lbl" style="color:${accent};">OFFICIAL CERTIFICATE</div>
+      <h2 style="margin:4px 0;">${esc(row.name)}</h2>
+      <div class="pill" style="color:#101827;background:${accent};border-color:${accent};">CERTIFIED · ${esc(cert.level.toUpperCase())}</div>
+      <div style="font-size:34px;font-weight:800;color:${accent};margin:12px 0;">${cert.score}/60</div>
+      <div class="muted" style="font-size:13px;">35% practice average: ${cert.practiceAvg}/60<br>65% final test: ${cert.testScore}/60</div>
+      <div class="faint" style="margin-top:8px;">Issued ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</div>
+      <button class="btn small adminCertPrint" data-name="${esc(row.name)}" style="margin-top:16px;">🖨 Print / save PDF</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.adminCertPrint').forEach(btn=>btn.addEventListener('click',()=>{
+    const row = rows.find(r=>r.name===btn.dataset.name);
+    const cert = certificateFromRow(row);
+    if(cert) printCertificate(cert, btn.dataset.name);
+  }));
+}
+
 /* ---------- render all ---------- */
 function renderAll(){
   if(!BOOT) return;
@@ -1959,7 +2028,7 @@ function renderAll(){
   renderRules();
   renderOnline();
   if(ME && window.ME_DATA) renderStudent();
-  if(PIN) { renderAdmin(); renderBackupStatus(); }
+  if(PIN) { renderAdmin(); renderBackupStatus(); renderCertificates(); }
   if(SESSION) renderAccount();
 }
 function renderOnline(){
